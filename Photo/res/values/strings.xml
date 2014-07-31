@@ -1,5 +1,10 @@
 <resources>
 
     <string name="app_name">Photo</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="save_photo">Save photo</string>
+    <string name="save_button_text">Save photo</string>
+    <string name="cancel_button_text">Cancel</string>
+    <string name="enter_filename">Enter photo name</string>
 
 </resources>
