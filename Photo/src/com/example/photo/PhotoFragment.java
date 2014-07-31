@@ -5,13 +5,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import android.app.Activity;
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -25,6 +25,7 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ImageView.ScaleType;
 
 public class PhotoFragment extends Fragment {
 	private final int CAMERA_RESULT = 17;
@@ -39,8 +40,29 @@ public class PhotoFragment extends Fragment {
 	BroadcastReceiver photoSaveReceiver;
 	Uri photoUri;
 
-	public void setPhoto(Bitmap photo) {
+	public void setPhoto(Bitmap photo) throws IOException {
 		this.photo = photo;
+		ExifInterface exif = new ExifInterface(photoUri.getPath().toString());
+		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+				ExifInterface.ORIENTATION_NORMAL);
+		switch (orientation) {
+		case ExifInterface.ORIENTATION_ROTATE_90:
+			Matrix matrix = new Matrix();
+			photoView.setScaleType(ScaleType.MATRIX);
+			matrix.postRotate((float) 90, photo.getWidth(), photo.getHeight());
+			photoView.setImageMatrix(matrix);
+			Log.d(FRAGMENT_TAG, "90 degrees");
+			break;
+		case ExifInterface.ORIENTATION_ROTATE_180:
+			Log.d(FRAGMENT_TAG, "180 degrees");
+			break;
+		case ExifInterface.ORIENTATION_ROTATE_270:
+			Log.d(FRAGMENT_TAG, "270 degrees");
+			break;
+		case ExifInterface.ORIENTATION_NORMAL:
+			Log.d(FRAGMENT_TAG, "Normal");
+			break;
+		}
 		photoView.setImageBitmap(photo);
 	}
 
