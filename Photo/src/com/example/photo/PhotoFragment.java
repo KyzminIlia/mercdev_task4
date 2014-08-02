@@ -41,29 +41,44 @@ public class PhotoFragment extends Fragment {
 	Uri photoUri;
 
 	public void setPhoto(Bitmap photo) throws IOException {
-		this.photo = photo;
+		Bitmap rotatedPhoto;
 		ExifInterface exif = new ExifInterface(photoUri.getPath().toString());
 		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
 				ExifInterface.ORIENTATION_NORMAL);
+		Matrix matrix = new Matrix();
 		switch (orientation) {
 		case ExifInterface.ORIENTATION_ROTATE_90:
-			Matrix matrix = new Matrix();
-			photoView.setScaleType(ScaleType.MATRIX);
-			matrix.postRotate((float) 90, photo.getWidth(), photo.getHeight());
-			photoView.setImageMatrix(matrix);
+
+			matrix.postRotate((float) 90);
+			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
+					photo.getHeight(), matrix, true);
+			photoView.setImageBitmap(rotatedPhoto);
 			Log.d(FRAGMENT_TAG, "90 degrees");
+			this.photo = rotatedPhoto;
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_180:
 			Log.d(FRAGMENT_TAG, "180 degrees");
+			matrix.postRotate((float) 180);
+			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
+					photo.getHeight(), matrix, true);
+			photoView.setImageBitmap(rotatedPhoto);
+			this.photo = rotatedPhoto;
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_270:
+			matrix.postRotate((float) 270);
+			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
+					photo.getHeight(), matrix, true);
+			photoView.setImageBitmap(rotatedPhoto);
+			this.photo = rotatedPhoto;
 			Log.d(FRAGMENT_TAG, "270 degrees");
 			break;
 		case ExifInterface.ORIENTATION_NORMAL:
 			Log.d(FRAGMENT_TAG, "Normal");
+			photoView.setImageBitmap(photo);
+			this.photo = photo;
 			break;
 		}
-		photoView.setImageBitmap(photo);
+
 	}
 
 	public Uri getPhotoUri() {
