@@ -12,6 +12,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.BitmapFactory.Options;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.media.ExifInterface;
@@ -22,6 +24,7 @@ import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
@@ -30,6 +33,7 @@ import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.SeekBar;
 
 public class PhotoFragment extends Fragment {
 	private final int CAMERA_RESULT = 17;
@@ -51,11 +55,18 @@ public class PhotoFragment extends Fragment {
 	}
 
 	public void setPhoto() throws IOException {
-		Display display = getActivity().getWindowManager().getDefaultDisplay();
+		DisplayMetrics metrics = new DisplayMetrics();
+		getActivity().getWindowManager().getDefaultDisplay()
+				.getMetrics(metrics);
 		Point displaySize = new Point();
+		Display display = getActivity().getWindowManager().getDefaultDisplay();
 		display.getSize(displaySize);
-		int displayHeight = displaySize.y;
-		int displayWidth = displaySize.x;
+		int displayHeight = (int) (displaySize.y * metrics.density);
+		int displayWidth = (int) (displaySize.x * metrics.density);
+		Options options = new BitmapFactory.Options();
+		options.inScaled = false;
+		options.inDither = false;
+		options.inPreferredConfig = Bitmap.Config.ARGB_8888;
 		ContentResolver contentResolver = getActivity().getContentResolver();
 		WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
 				MediaStore.Images.Media.getBitmap(contentResolver, photoUri));
@@ -70,9 +81,6 @@ public class PhotoFragment extends Fragment {
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
 					.get(), 0, 0, photo.get().getWidth(), photo.get()
 					.getHeight(), matrix, true));
-			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
-					rotatedPhoto.get(), displayWidth, displayHeight, false));
-			photoView.setImageBitmap(resizedPhoto.get());
 			Log.d(FRAGMENT_TAG, "90 degrees");
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_180:
@@ -81,30 +89,27 @@ public class PhotoFragment extends Fragment {
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
 					.get(), 0, 0, photo.get().getWidth(), photo.get()
 					.getHeight(), matrix, true));
-			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
-					rotatedPhoto.get(), displayWidth, displayHeight, false));
-			photoView.setImageBitmap(resizedPhoto.get());
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_270:
 			matrix.postRotate((float) 270);
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
 					.get(), 0, 0, photo.get().getWidth(), photo.get()
 					.getHeight(), matrix, true));
-			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
-					rotatedPhoto.get(), displayWidth, displayHeight, false));
-			photoView.setImageBitmap(resizedPhoto.get());
 			Log.d(FRAGMENT_TAG, "270 degrees");
 			break;
 		case ExifInterface.ORIENTATION_NORMAL:
 			Log.d(FRAGMENT_TAG, "Normal");
-			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
-					photo.get(), displayWidth, displayHeight, false));
-			photoView.setImageBitmap(resizedPhoto.get());
+			rotatedPhoto = photo;
 			break;
 		}
 		FileOutputStream photoOutput = new FileOutputStream(photoUri.getPath());
 		rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
 				photoOutput);
+		WeakReference<Bitmap> preparedPhoto = new WeakReference<Bitmap>(
+				BitmapFactory.decodeFile(photoUri.getPath(), options));
+		resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
+				preparedPhoto.get(), displayWidth, displayHeight, false));
+		photoView.setImageBitmap(resizedPhoto.get());
 	}
 
 	public Uri getPhotoUri() {
