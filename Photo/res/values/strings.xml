@@ -6,5 +6,6 @@
     <string name="save_button_text">Save photo</string>
     <string name="cancel_button_text">Cancel</string>
     <string name="enter_filename">Enter photo name</string>
+    <string name="toas_saved">Saved</string>
 
 </resources>

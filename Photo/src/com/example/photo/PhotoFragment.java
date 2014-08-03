@@ -16,6 +16,7 @@ import android.graphics.Matrix;
 import android.graphics.Point;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -58,7 +59,7 @@ public class PhotoFragment extends Fragment {
 		ContentResolver contentResolver = getActivity().getContentResolver();
 		WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
 				MediaStore.Images.Media.getBitmap(contentResolver, photoUri));
-		WeakReference<Bitmap> rotatedPhoto;
+		WeakReference<Bitmap> rotatedPhoto = null;
 		ExifInterface exif = new ExifInterface(photoUri.getPath().toString());
 		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
 				ExifInterface.ORIENTATION_NORMAL);
@@ -101,7 +102,9 @@ public class PhotoFragment extends Fragment {
 			photoView.setImageBitmap(resizedPhoto.get());
 			break;
 		}
-
+		FileOutputStream photoOutput = new FileOutputStream(photoUri.getPath());
+		rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
+				photoOutput);
 	}
 
 	public Uri getPhotoUri() {
@@ -114,6 +117,11 @@ public class PhotoFragment extends Fragment {
 
 			@Override
 			public void onReceive(Context context, Intent intent) {
+				File photoDir = null;
+				photoDir = Environment
+						.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+				if (!photoDir.exists())
+					photoDir.mkdir();
 				File photoFile = new File(
 						Environment
 								.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES),
@@ -148,7 +156,6 @@ public class PhotoFragment extends Fragment {
 						photoOutput);
 				photo = null;
 				tempPhotoFile.delete();
-
 			}
 		};
 		LocalBroadcastManager.getInstance(getActivity()).registerReceiver(
@@ -192,7 +199,6 @@ public class PhotoFragment extends Fragment {
 			try {
 				tempPhotoFile = File.createTempFile("pht", ".png",
 						tempPhotoFile);
-				tempPhotoFile.delete();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
