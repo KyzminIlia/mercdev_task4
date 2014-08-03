@@ -2,11 +2,13 @@ package com.example.photo;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -40,17 +42,11 @@ public class PhotoActivity extends FragmentActivity {
 		super.onActivityResult(requestCode, resultCode, data);
 		if (requestCode == CAMERA_RESULT)
 			if (resultCode == Activity.RESULT_OK) {
-				ContentResolver contentResolver = getContentResolver();
 				try {
-					Uri photoUri = photoFragment.getPhotoUri();
-					Bitmap photo = MediaStore.Images.Media.getBitmap(
-							contentResolver, photoUri);
-					photoFragment.setPhoto(photo);
+					photoFragment.setPhoto();
 				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 

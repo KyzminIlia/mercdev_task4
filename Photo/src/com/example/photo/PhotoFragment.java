@@ -4,13 +4,16 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
@@ -19,13 +22,13 @@ import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
+import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ImageView.ScaleType;
 
 public class PhotoFragment extends Fragment {
 	private final int CAMERA_RESULT = 17;
@@ -36,46 +39,66 @@ public class PhotoFragment extends Fragment {
 	public static final String EXTRA_URI = "com.example.photo.URI";
 	ImageView photoView;
 	Button takePhotoButton;
-	Bitmap photo;
 	BroadcastReceiver photoSaveReceiver;
 	Uri photoUri;
+	File tempPhotoFile;
+	WeakReference<Bitmap> resizedPhoto;
 
-	public void setPhoto(Bitmap photo) throws IOException {
-		Bitmap rotatedPhoto;
+	@Override
+	public void onDestroy() {
+		super.onDestroy();
+	}
+
+	public void setPhoto() throws IOException {
+		Display display = getActivity().getWindowManager().getDefaultDisplay();
+		Point displaySize = new Point();
+		display.getSize(displaySize);
+		int displayHeight = displaySize.y;
+		int displayWidth = displaySize.x;
+		ContentResolver contentResolver = getActivity().getContentResolver();
+		WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
+				MediaStore.Images.Media.getBitmap(contentResolver, photoUri));
+		WeakReference<Bitmap> rotatedPhoto;
 		ExifInterface exif = new ExifInterface(photoUri.getPath().toString());
 		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
 				ExifInterface.ORIENTATION_NORMAL);
 		Matrix matrix = new Matrix();
 		switch (orientation) {
 		case ExifInterface.ORIENTATION_ROTATE_90:
-
 			matrix.postRotate((float) 90);
-			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
-					photo.getHeight(), matrix, true);
-			photoView.setImageBitmap(rotatedPhoto);
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
+					.get(), 0, 0, photo.get().getWidth(), photo.get()
+					.getHeight(), matrix, true));
+			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
+					rotatedPhoto.get(), displayWidth, displayHeight, false));
+			photoView.setImageBitmap(resizedPhoto.get());
 			Log.d(FRAGMENT_TAG, "90 degrees");
-			this.photo = rotatedPhoto;
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_180:
 			Log.d(FRAGMENT_TAG, "180 degrees");
 			matrix.postRotate((float) 180);
-			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
-					photo.getHeight(), matrix, true);
-			photoView.setImageBitmap(rotatedPhoto);
-			this.photo = rotatedPhoto;
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
+					.get(), 0, 0, photo.get().getWidth(), photo.get()
+					.getHeight(), matrix, true));
+			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
+					rotatedPhoto.get(), displayWidth, displayHeight, false));
+			photoView.setImageBitmap(resizedPhoto.get());
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_270:
 			matrix.postRotate((float) 270);
-			rotatedPhoto = Bitmap.createBitmap(photo, 0, 0, photo.getWidth(),
-					photo.getHeight(), matrix, true);
-			photoView.setImageBitmap(rotatedPhoto);
-			this.photo = rotatedPhoto;
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
+					.get(), 0, 0, photo.get().getWidth(), photo.get()
+					.getHeight(), matrix, true));
+			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
+					rotatedPhoto.get(), displayWidth, displayHeight, false));
+			photoView.setImageBitmap(resizedPhoto.get());
 			Log.d(FRAGMENT_TAG, "270 degrees");
 			break;
 		case ExifInterface.ORIENTATION_NORMAL:
 			Log.d(FRAGMENT_TAG, "Normal");
-			photoView.setImageBitmap(photo);
-			this.photo = photo;
+			resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
+					photo.get(), displayWidth, displayHeight, false));
+			photoView.setImageBitmap(resizedPhoto.get());
 			break;
 		}
 
@@ -98,7 +121,6 @@ public class PhotoFragment extends Fragment {
 				try {
 					photoFile.createNewFile();
 				} catch (IOException e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 
@@ -107,10 +129,25 @@ public class PhotoFragment extends Fragment {
 					photoOutput = new FileOutputStream(
 							photoFile.getAbsoluteFile());
 				} catch (FileNotFoundException e) {
-					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				photo.compress(Bitmap.CompressFormat.JPEG, 100, photoOutput);
+				ContentResolver contentResolver = getActivity()
+						.getContentResolver();
+				WeakReference<Bitmap> photo = null;
+				try {
+					photo = new WeakReference<Bitmap>(
+							MediaStore.Images.Media.getBitmap(contentResolver,
+									photoUri));
+				} catch (FileNotFoundException e) {
+
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+				photo.get().compress(Bitmap.CompressFormat.JPEG, 100,
+						photoOutput);
+				photo = null;
+				tempPhotoFile.delete();
 
 			}
 		};
@@ -122,8 +159,6 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onResume() {
-		if (photo != null)
-			photoView.setImageBitmap(photo);
 		super.onResume();
 	}
 
@@ -132,6 +167,8 @@ public class PhotoFragment extends Fragment {
 		photoView = (ImageView) view.findViewById(R.id.photo_view);
 		takePhotoButton = (Button) view.findViewById(R.id.take_photo_button);
 		takePhotoButton.setOnClickListener(new TakePhoto());
+		if (resizedPhoto != null)
+			photoView.setImageBitmap(resizedPhoto.get());
 		super.onViewCreated(view, savedInstanceState);
 	}
 
@@ -147,7 +184,7 @@ public class PhotoFragment extends Fragment {
 		@Override
 		public void onClick(View v) {
 			Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-			File tempPhotoFile = Environment.getExternalStorageDirectory();
+			tempPhotoFile = Environment.getExternalStorageDirectory();
 			tempPhotoFile = new File(tempPhotoFile.getAbsolutePath()
 					+ "/.temp/");
 			if (!tempPhotoFile.exists())
@@ -155,13 +192,13 @@ public class PhotoFragment extends Fragment {
 			try {
 				tempPhotoFile = File.createTempFile("pht", ".png",
 						tempPhotoFile);
+				tempPhotoFile.delete();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 			photoUri = Uri.fromFile(tempPhotoFile);
 			cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
 			getActivity().startActivityForResult(cameraIntent, CAMERA_RESULT);
-
 		}
 	}
 }
