@@ -11,14 +11,17 @@ import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.BitmapFactory.Options;
 import android.graphics.Matrix;
 import android.graphics.Point;
+import android.graphics.drawable.BitmapDrawable;
+import android.hardware.Camera;
+import android.hardware.Camera.PictureCallback;
 import android.media.ExifInterface;
 import android.net.Uri;
-import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -31,27 +34,35 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.SeekBar;
 
 public class PhotoFragment extends Fragment {
 	private final int CAMERA_RESULT = 17;
 	public static final String FRAGMENT_TAG = PhotoFragment.class
 			.getSimpleName();
-	public static final String ACTION_SAVE_PHOTO = "com.example.photo.SAVE_PHOTO";
-	public static final String EXTRA_PHOTO_NAME = "com.example.photo.PHOTO_NAME";
-	public static final String EXTRA_URI = "com.example.photo.URI";
-	ImageView photoView;
+	FrameLayout photoView;
 	Button takePhotoButton;
 	BroadcastReceiver photoSaveReceiver;
 	Uri photoUri;
 	File tempPhotoFile;
 	WeakReference<Bitmap> resizedPhoto;
+	Camera camera;
+	CameraPreview preview;
+	PictureCallback picture;
+	ImageView photoPreview;
+	boolean isPhotoTaken = false;
+	String takePhotoButtonText;
 
 	@Override
-	public void onDestroy() {
-		super.onDestroy();
+	public void onStop() {
+		photoView.removeAllViews();
+		preview.setCamera(null);
+		takePhotoButtonText = takePhotoButton.getText().toString();
+		camera.release();
+		super.onStop();
 	}
 
 	public void setPhoto() throws IOException {
@@ -109,7 +120,7 @@ public class PhotoFragment extends Fragment {
 				BitmapFactory.decodeFile(photoUri.getPath(), options));
 		resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
 				preparedPhoto.get(), displayWidth, displayHeight, false));
-		photoView.setImageBitmap(resizedPhoto.get());
+		// photoView.setImageBitmap(resizedPhoto.get());
 	}
 
 	public Uri getPhotoUri() {
@@ -118,6 +129,13 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		if (getActivity().getPackageManager().hasSystemFeature(
+				PackageManager.FEATURE_CAMERA)) {
+			camera = Camera.open();
+			preview = new CameraPreview(getActivity());
+			preview.setCamera(camera);
+			Log.d(FRAGMENT_TAG, "camera supported");
+		}
 		photoSaveReceiver = new BroadcastReceiver() {
 
 			@Override
@@ -144,23 +162,57 @@ public class PhotoFragment extends Fragment {
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
 				}
-				ContentResolver contentResolver = getActivity()
-						.getContentResolver();
-				WeakReference<Bitmap> photo = null;
-				try {
-					photo = new WeakReference<Bitmap>(
-							MediaStore.Images.Media.getBitmap(contentResolver,
-									photoUri));
-				} catch (FileNotFoundException e) {
-
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
+						BitmapFactory.decodeFile(tempPhotoFile.getPath()));
 				photo.get().compress(Bitmap.CompressFormat.JPEG, 100,
 						photoOutput);
 				photo = null;
 				tempPhotoFile.delete();
+			}
+		};
+		picture = new PictureCallback() {
+
+			@Override
+			public void onPictureTaken(byte[] data, Camera camera) {
+				Log.d(FRAGMENT_TAG, "take a picture");
+				tempPhotoFile = Environment.getExternalStorageDirectory();
+				tempPhotoFile = new File(tempPhotoFile.getAbsolutePath()
+						+ "/.temp/");
+				if (!tempPhotoFile.exists())
+					tempPhotoFile.mkdir();
+				try {
+					tempPhotoFile = File.createTempFile("pht", ".png",
+							tempPhotoFile);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+				try {
+					FileOutputStream photoOutput = new FileOutputStream(
+							tempPhotoFile);
+					photoOutput.write(data);
+					BitmapDrawable background = new BitmapDrawable(
+							tempPhotoFile.getPath());
+					DisplayMetrics metrics = new DisplayMetrics();
+					getActivity().getWindowManager().getDefaultDisplay()
+							.getMetrics(metrics);
+					background.setDither(false);
+					background.setTargetDensity(metrics);
+					// background.setGravity(Gravity.CENTER);
+					camera.stopPreview();
+					photoPreview = new ImageView(getActivity());
+					photoPreview.setImageBitmap(background.getBitmap());
+					photoView.removeAllViews();
+					photoView.addView(photoPreview);
+					isPhotoTaken = true;
+					photoOutput.close();
+
+				} catch (FileNotFoundException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
 			}
 		};
 		LocalBroadcastManager.getInstance(getActivity()).registerReceiver(
@@ -171,16 +223,30 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onResume() {
+		if (preview != null)
+			if (preview.getCamera() == null) {
+				camera = Camera.open();
+				if (!isPhotoTaken) {
+					takePhotoButton.setOnClickListener(new TakePhoto());
+					preview.setCamera(camera);
+					takePhotoButton.setText(takePhotoButtonText);
+				} else {
+					takePhotoButton.setOnClickListener(new RetakePhoto());
+					takePhotoButton.setText(takePhotoButtonText);
+				}
+			}
 		super.onResume();
 	}
 
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
-		photoView = (ImageView) view.findViewById(R.id.photo_view);
+		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
+		if (!isPhotoTaken)
+			photoView.addView(preview);
+		else
+			photoView.addView(photoPreview);
 		takePhotoButton = (Button) view.findViewById(R.id.take_photo_button);
 		takePhotoButton.setOnClickListener(new TakePhoto());
-		if (resizedPhoto != null)
-			photoView.setImageBitmap(resizedPhoto.get());
 		super.onViewCreated(view, savedInstanceState);
 	}
 
@@ -195,21 +261,24 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
-			Intent cameraIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-			tempPhotoFile = Environment.getExternalStorageDirectory();
-			tempPhotoFile = new File(tempPhotoFile.getAbsolutePath()
-					+ "/.temp/");
-			if (!tempPhotoFile.exists())
-				tempPhotoFile.mkdir();
-			try {
-				tempPhotoFile = File.createTempFile("pht", ".png",
-						tempPhotoFile);
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			photoUri = Uri.fromFile(tempPhotoFile);
-			cameraIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoUri);
-			getActivity().startActivityForResult(cameraIntent, CAMERA_RESULT);
+			camera.takePicture(null, null, picture);
+			takePhotoButton.setOnClickListener(new RetakePhoto());
+			takePhotoButton.setText(getString(R.string.retake_photo));
 		}
+	}
+
+	class RetakePhoto implements OnClickListener {
+
+		@Override
+		public void onClick(View v) {
+			photoView.removeAllViews();
+			takePhotoButton.setOnClickListener(new TakePhoto());
+			takePhotoButton.setText(getString(R.string.take_photo));
+			isPhotoTaken = false;
+			photoView.addView(preview);
+			preview.setCamera(camera);
+
+		}
+
 	}
 }

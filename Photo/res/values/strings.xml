@@ -7,5 +7,6 @@
     <string name="cancel_button_text">Cancel</string>
     <string name="enter_filename">Enter photo name</string>
     <string name="toas_saved">Saved</string>
+    <string name="retake_photo">Retake photo</string>
 
 </resources>

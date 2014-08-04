@@ -2,39 +2,33 @@ package com.example.photo;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
-
 import android.app.Activity;
-import android.content.ContentResolver;
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.support.v4.app.FragmentActivity;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 
 public class PhotoActivity extends FragmentActivity {
-	PhotoFragment photoFragment = new PhotoFragment();
 	SavePhotoDialog saveDialog;
 	private final int CAMERA_RESULT = 17;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
-		photoFragment = (PhotoFragment) getSupportFragmentManager()
-				.findFragmentByTag(PhotoFragment.FRAGMENT_TAG);
-		if (photoFragment == null) {
-			photoFragment = new PhotoFragment();
+		if (getPhotoFragment() == null) {
+			PhotoFragment photoFragment = new PhotoFragment();
 			getSupportFragmentManager()
 					.beginTransaction()
 					.replace(android.R.id.content, photoFragment,
 							PhotoFragment.FRAGMENT_TAG).commit();
 		}
+	}
+
+	public PhotoFragment getPhotoFragment() {
+		return (PhotoFragment) getSupportFragmentManager().findFragmentByTag(
+				PhotoFragment.FRAGMENT_TAG);
 	}
 
 	@Override
@@ -43,7 +37,7 @@ public class PhotoActivity extends FragmentActivity {
 		if (requestCode == CAMERA_RESULT)
 			if (resultCode == Activity.RESULT_OK) {
 				try {
-					photoFragment.setPhoto();
+					getPhotoFragment().setPhoto();
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
