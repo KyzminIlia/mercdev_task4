@@ -9,6 +9,8 @@ import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.Window;
+import android.view.WindowManager;
 
 public class PhotoActivity extends FragmentActivity {
 	SavePhotoDialog saveDialog;
@@ -17,6 +19,9 @@ public class PhotoActivity extends FragmentActivity {
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		this.requestWindowFeature(Window.FEATURE_NO_TITLE);
+		this.getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+				WindowManager.LayoutParams.FLAG_FULLSCREEN);
 		if (getPhotoFragment() == null) {
 			PhotoFragment photoFragment = new PhotoFragment();
 			getSupportFragmentManager()
@@ -29,22 +34,6 @@ public class PhotoActivity extends FragmentActivity {
 	public PhotoFragment getPhotoFragment() {
 		return (PhotoFragment) getSupportFragmentManager().findFragmentByTag(
 				PhotoFragment.FRAGMENT_TAG);
-	}
-
-	@Override
-	public void onActivityResult(int requestCode, int resultCode, Intent data) {
-		super.onActivityResult(requestCode, resultCode, data);
-		if (requestCode == CAMERA_RESULT)
-			if (resultCode == Activity.RESULT_OK) {
-				try {
-					getPhotoFragment().setPhoto();
-				} catch (FileNotFoundException e) {
-					e.printStackTrace();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-
-			}
 	}
 
 	@Override

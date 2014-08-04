@@ -1,19 +1,24 @@
 package com.example.photo;
 
 import java.io.IOException;
-import java.util.List;
-
 import android.content.Context;
+import android.content.res.Configuration;
 import android.hardware.Camera;
-import android.hardware.Camera.Size;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.hardware.Camera.Parameters;
 import android.view.SurfaceHolder;
-import android.view.SurfaceHolder.Callback;
 import android.view.SurfaceView;
 
 public class CameraPreview extends SurfaceView implements
-		SurfaceHolder.Callback {
+		SurfaceHolder.Callback, SensorEventListener {
 	private SurfaceHolder holder;
 	private Camera camera;
+	Sensor orientationSensor;
+	SensorManager sensManager;
+	float curOrientation;
 
 	public Camera getCamera() {
 		return camera;
@@ -38,67 +43,21 @@ public class CameraPreview extends SurfaceView implements
 
 	@Override
 	public void surfaceCreated(SurfaceHolder arg0) {
-
-		try {
-			if (camera != null) {
-				Camera.Parameters params = this.camera.getParameters();
-				List<Size> sizes = params.getSupportedPreviewSizes();
-				Size optimalSize = getOptimalPreviewSize(sizes, getResources()
-						.getDisplayMetrics().widthPixels, getResources()
-						.getDisplayMetrics().heightPixels);
-				params.setPreviewSize(optimalSize.width, optimalSize.height);
-				requestLayout();
-				this.camera.setParameters(params);
+		sensManager = (SensorManager) getContext().getSystemService(
+				Context.SENSOR_SERVICE);
+		sensManager.registerListener(this, orientationSensor,
+				SensorManager.SENSOR_DELAY_NORMAL);
+		if (camera != null)
+			try {
 				camera.setPreviewDisplay(holder);
+			} catch (IOException e) {
+				e.printStackTrace();
 			}
-
-		} catch (IOException e) {
-
-			e.printStackTrace();
-		}
-
 	}
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder arg0) {
-		// TODO Auto-generated method stub
 
-	}
-
-	private Size getOptimalPreviewSize(List<Size> sizes, int w, int h) {
-		final double ASPECT_TOLERANCE = 0.05;
-		double targetRatio = (double) w / h;
-
-		if (sizes == null)
-			return null;
-
-		Size optimalSize = null;
-
-		double minDiff = Double.MAX_VALUE;
-
-		int targetHeight = h;
-
-		// Find size
-		for (Size size : sizes) {
-			double ratio = (double) size.width / size.height;
-			if (Math.abs(ratio - targetRatio) > ASPECT_TOLERANCE)
-				continue;
-			if (Math.abs(size.height - targetHeight) < minDiff) {
-				optimalSize = size;
-				minDiff = Math.abs(size.height - targetHeight);
-			}
-		}
-
-		if (optimalSize == null) {
-			minDiff = Double.MAX_VALUE;
-			for (Size size : sizes) {
-				if (Math.abs(size.height - targetHeight) < minDiff) {
-					optimalSize = size;
-					minDiff = Math.abs(size.height - targetHeight);
-				}
-			}
-		}
-		return optimalSize;
 	}
 
 	@Override
@@ -114,9 +73,35 @@ public class CameraPreview extends SurfaceView implements
 
 		try {
 
-			camera.startPreview();
+			orientationSensor = sensManager
+					.getDefaultSensor(Sensor.TYPE_ORIENTATION);
+			int orientation = getResources().getConfiguration().orientation;
+			Parameters params = camera.getParameters();
+			switch (orientation) {
+			case Configuration.ORIENTATION_PORTRAIT:
+				camera.setDisplayOrientation((int) curOrientation);
+				break;
+			case Configuration.ORIENTATION_LANDSCAPE:
+				camera.setDisplayOrientation((int) curOrientation);
+				break;
 
+			}
+			params.setPreviewSize(camera.getParameters()
+					.getSupportedPreviewSizes().get(0).width, camera
+					.getParameters().getSupportedPreviewSizes().get(0).height);
+			camera.setParameters(params);
+			camera.startPreview();
 		} catch (Exception e) {
 		}
+	}
+
+	@Override
+	public void onAccuracyChanged(Sensor sensor, int accuracy) {
+	}
+
+	@Override
+	public void onSensorChanged(SensorEvent event) {
+		curOrientation = event.values[1];
+
 	}
 }

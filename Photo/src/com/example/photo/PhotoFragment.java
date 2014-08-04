@@ -7,46 +7,41 @@ import java.io.IOException;
 import java.lang.ref.WeakReference;
 
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.BitmapFactory.Options;
 import android.graphics.Matrix;
-import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.PictureCallback;
+import android.hardware.Sensor;
+import android.hardware.SensorManager;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
-import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
-import android.view.ViewGroup.LayoutParams;
-import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 
 public class PhotoFragment extends Fragment {
-	private final int CAMERA_RESULT = 17;
 	public static final String FRAGMENT_TAG = PhotoFragment.class
 			.getSimpleName();
 	public static final String ACTION_SAVE_PHOTO = "com.example.photo.SAVE_PHOTO";
 	public static final String EXTRA_PHOTO_NAME = "com.example.photo.PHOTO_NAME";
 	FrameLayout photoView;
-	Button takePhotoButton;
+	ImageButton takePhotoButton;
 	BroadcastReceiver photoSaveReceiver;
 	Uri photoUri;
 	File tempPhotoFile;
@@ -57,72 +52,52 @@ public class PhotoFragment extends Fragment {
 	ImageView photoPreview;
 	boolean isPhotoTaken = false;
 	String takePhotoButtonText;
+	ImageButton changeCameraButton;
 
 	@Override
 	public void onStop() {
 		photoView.removeAllViews();
 		preview.setCamera(null);
-		takePhotoButtonText = takePhotoButton.getText().toString();
 		camera.release();
 		super.onStop();
 	}
 
-	public void setPhoto() throws IOException {
-		DisplayMetrics metrics = new DisplayMetrics();
-		getActivity().getWindowManager().getDefaultDisplay()
-				.getMetrics(metrics);
-		Point displaySize = new Point();
-		Display display = getActivity().getWindowManager().getDefaultDisplay();
-		display.getSize(displaySize);
-		int displayHeight = (int) (displaySize.y * metrics.density);
-		int displayWidth = (int) (displaySize.x * metrics.density);
-		Options options = new BitmapFactory.Options();
-		options.inScaled = false;
-		options.inDither = false;
-		options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-		ContentResolver contentResolver = getActivity().getContentResolver();
-		WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
-				MediaStore.Images.Media.getBitmap(contentResolver, photoUri));
+	public Bitmap rotatePhoto(Bitmap photo) throws IOException {
 		WeakReference<Bitmap> rotatedPhoto = null;
-		ExifInterface exif = new ExifInterface(photoUri.getPath().toString());
+		ExifInterface exif = new ExifInterface(tempPhotoFile.getPath());
 		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
 				ExifInterface.ORIENTATION_NORMAL);
 		Matrix matrix = new Matrix();
 		switch (orientation) {
 		case ExifInterface.ORIENTATION_ROTATE_90:
 			matrix.postRotate((float) 90);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
-					.get(), 0, 0, photo.get().getWidth(), photo.get()
-					.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
+					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
 			Log.d(FRAGMENT_TAG, "90 degrees");
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_180:
 			Log.d(FRAGMENT_TAG, "180 degrees");
 			matrix.postRotate((float) 180);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
-					.get(), 0, 0, photo.get().getWidth(), photo.get()
-					.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
+					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
 			break;
 		case ExifInterface.ORIENTATION_ROTATE_270:
 			matrix.postRotate((float) 270);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo
-					.get(), 0, 0, photo.get().getWidth(), photo.get()
-					.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
+					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
 			Log.d(FRAGMENT_TAG, "270 degrees");
 			break;
 		case ExifInterface.ORIENTATION_NORMAL:
 			Log.d(FRAGMENT_TAG, "Normal");
-			rotatedPhoto = photo;
+			rotatedPhoto = new WeakReference<Bitmap>(photo);
 			break;
 		}
-		FileOutputStream photoOutput = new FileOutputStream(photoUri.getPath());
+		FileOutputStream photoOutput = new FileOutputStream(
+				tempPhotoFile.getPath());
 		rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
 				photoOutput);
-		WeakReference<Bitmap> preparedPhoto = new WeakReference<Bitmap>(
-				BitmapFactory.decodeFile(photoUri.getPath(), options));
-		resizedPhoto = new WeakReference<Bitmap>(Bitmap.createScaledBitmap(
-				preparedPhoto.get(), displayWidth, displayHeight, false));
-		// photoView.setImageBitmap(resizedPhoto.get());
+		photoOutput.close();
+		return rotatedPhoto.get();
 	}
 
 	public Uri getPhotoUri() {
@@ -131,6 +106,7 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+
 		if (getActivity().getPackageManager().hasSystemFeature(
 				PackageManager.FEATURE_CAMERA)) {
 			camera = Camera.open();
@@ -200,7 +176,6 @@ public class PhotoFragment extends Fragment {
 							.getMetrics(metrics);
 					background.setDither(false);
 					background.setTargetDensity(metrics);
-					// background.setGravity(Gravity.CENTER);
 					camera.stopPreview();
 					photoPreview = new ImageView(getActivity());
 					photoPreview.setImageBitmap(background.getBitmap());
@@ -231,23 +206,27 @@ public class PhotoFragment extends Fragment {
 				if (!isPhotoTaken) {
 					takePhotoButton.setOnClickListener(new TakePhoto());
 					preview.setCamera(camera);
-					takePhotoButton.setText(takePhotoButtonText);
 				} else {
 					takePhotoButton.setOnClickListener(new RetakePhoto());
-					takePhotoButton.setText(takePhotoButtonText);
 				}
 			}
+
 		super.onResume();
 	}
 
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
+
 		if (!isPhotoTaken)
 			photoView.addView(preview);
 		else
 			photoView.addView(photoPreview);
-		takePhotoButton = (Button) view.findViewById(R.id.take_photo_button);
+		takePhotoButton = (ImageButton) view
+				.findViewById(R.id.take_photo_button);
+		changeCameraButton = (ImageButton) view
+				.findViewById(R.id.change_camera_button);
+		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
 		super.onViewCreated(view, savedInstanceState);
 	}
@@ -265,7 +244,6 @@ public class PhotoFragment extends Fragment {
 		public void onClick(View v) {
 			camera.takePicture(null, null, picture);
 			takePhotoButton.setOnClickListener(new RetakePhoto());
-			takePhotoButton.setText(getString(R.string.retake_photo));
 		}
 	}
 
@@ -275,11 +253,35 @@ public class PhotoFragment extends Fragment {
 		public void onClick(View v) {
 			photoView.removeAllViews();
 			takePhotoButton.setOnClickListener(new TakePhoto());
-			takePhotoButton.setText(getString(R.string.take_photo));
 			isPhotoTaken = false;
 			photoView.addView(preview);
 			preview.setCamera(camera);
 
+		}
+
+	}
+
+	class ChangeToFrontCamera implements OnClickListener {
+
+		@Override
+		public void onClick(View v) {
+			Camera.CameraInfo currentCamInfo = new Camera.CameraInfo();
+			Camera frontCamera = Camera
+					.open(currentCamInfo.CAMERA_FACING_FRONT);
+			changeCameraButton.setOnClickListener(new ChangeToBackCamera());
+			preview.setCamera(frontCamera);
+		}
+
+	}
+
+	class ChangeToBackCamera implements OnClickListener {
+
+		@Override
+		public void onClick(View v) {
+			Camera.CameraInfo currentCamInfo = new Camera.CameraInfo();
+			Camera backCamera = Camera.open(currentCamInfo.CAMERA_FACING_BACK);
+			changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
+			preview.setCamera(backCamera);
 		}
 
 	}
