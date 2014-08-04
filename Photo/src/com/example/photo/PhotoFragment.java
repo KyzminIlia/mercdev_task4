@@ -43,6 +43,8 @@ public class PhotoFragment extends Fragment {
 	private final int CAMERA_RESULT = 17;
 	public static final String FRAGMENT_TAG = PhotoFragment.class
 			.getSimpleName();
+	public static final String ACTION_SAVE_PHOTO = "com.example.photo.SAVE_PHOTO";
+	public static final String EXTRA_PHOTO_NAME = "com.example.photo.PHOTO_NAME";
 	FrameLayout photoView;
 	Button takePhotoButton;
 	BroadcastReceiver photoSaveReceiver;

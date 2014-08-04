@@ -34,37 +34,28 @@ public class CameraPreview extends SurfaceView implements
 			this.camera.release();
 		}
 		this.camera = camera;
-		if (camera != null) {
-
-			Camera.Parameters params = this.camera.getParameters();
-			List<Size> sizes = params.getSupportedPreviewSizes();
-			Size optimalSize = getOptimalPreviewSize(sizes, getResources()
-					.getDisplayMetrics().widthPixels, getResources()
-					.getDisplayMetrics().heightPixels);
-			params.setPreviewSize(optimalSize.width, optimalSize.height);
-			requestLayout();
-			this.camera.setParameters(params);
-			if (this.camera != null) {
-				try {
-					this.camera.setPreviewDisplay(holder);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-
-				this.camera.startPreview();
-			}
-		}
 	}
 
 	@Override
 	public void surfaceCreated(SurfaceHolder arg0) {
-		/*
-		 * try { if (camera != null) camera.setPreviewDisplay(holder);
-		 * 
-		 * } catch (IOException e) {
-		 * 
-		 * e.printStackTrace(); }
-		 */
+
+		try {
+			if (camera != null) {
+				Camera.Parameters params = this.camera.getParameters();
+				List<Size> sizes = params.getSupportedPreviewSizes();
+				Size optimalSize = getOptimalPreviewSize(sizes, getResources()
+						.getDisplayMetrics().widthPixels, getResources()
+						.getDisplayMetrics().heightPixels);
+				params.setPreviewSize(optimalSize.width, optimalSize.height);
+				requestLayout();
+				this.camera.setParameters(params);
+				camera.setPreviewDisplay(holder);
+			}
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
 
 	}
 
@@ -122,7 +113,7 @@ public class CameraPreview extends SurfaceView implements
 		}
 
 		try {
-			camera.setPreviewDisplay(holder);
+
 			camera.startPreview();
 
 		} catch (Exception e) {
