@@ -1,16 +1,22 @@
 package com.example.photo;
 
 import java.io.IOException;
+import java.util.List;
+
 import android.content.Context;
-import android.content.res.Configuration;
 import android.hardware.Camera;
+import android.hardware.Camera.Parameters;
+import android.hardware.Camera.Size;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.hardware.Camera.Parameters;
+import android.view.Display;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.ViewGroup.LayoutParams;
+import android.view.WindowManager;
 
 public class CameraPreview extends SurfaceView implements
 		SurfaceHolder.Callback, SensorEventListener {
@@ -34,11 +40,38 @@ public class CameraPreview extends SurfaceView implements
 	public void setCamera(Camera camera) {
 		if (this.camera == camera)
 			return;
-		if (this.camera != null) {
-			this.camera.stopPreview();
-			this.camera.release();
-		}
 		this.camera = camera;
+		if (this.camera != null) {
+			try {
+				this.camera.setPreviewDisplay(holder);
+				Display display = ((WindowManager) getContext()
+						.getSystemService(Context.WINDOW_SERVICE))
+						.getDefaultDisplay();
+				int rotation = display.getRotation();
+				Parameters params = camera.getParameters();
+				switch (rotation) {
+				case Surface.ROTATION_0:
+					camera.setDisplayOrientation(90);
+					break;
+				case Surface.ROTATION_270:
+					camera.setDisplayOrientation(180);
+					break;
+				case Surface.ROTATION_180:
+					camera.setDisplayOrientation(180);
+					break;
+
+				}
+				params.setPreviewSize(camera.getParameters()
+						.getSupportedPreviewSizes().get(0).width,
+						camera.getParameters().getSupportedPreviewSizes()
+								.get(0).width);
+				camera.setParameters(params);
+				this.camera.startPreview();
+
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
 	}
 
 	@Override
@@ -73,22 +106,25 @@ public class CameraPreview extends SurfaceView implements
 
 		try {
 
-			orientationSensor = sensManager
-					.getDefaultSensor(Sensor.TYPE_ORIENTATION);
-			int orientation = getResources().getConfiguration().orientation;
+			Display display = ((WindowManager) getContext().getSystemService(
+					Context.WINDOW_SERVICE)).getDefaultDisplay();
+			int rotation = display.getRotation();
 			Parameters params = camera.getParameters();
-			switch (orientation) {
-			case Configuration.ORIENTATION_PORTRAIT:
-				camera.setDisplayOrientation((int) curOrientation);
+			switch (rotation) {
+			case Surface.ROTATION_0:
+				camera.setDisplayOrientation(90);
 				break;
-			case Configuration.ORIENTATION_LANDSCAPE:
-				camera.setDisplayOrientation((int) curOrientation);
+			case Surface.ROTATION_270:
+				camera.setDisplayOrientation(180);
+				break;
+			case Surface.ROTATION_180:
+				camera.setDisplayOrientation(180);
 				break;
 
 			}
 			params.setPreviewSize(camera.getParameters()
 					.getSupportedPreviewSizes().get(0).width, camera
-					.getParameters().getSupportedPreviewSizes().get(0).height);
+					.getParameters().getSupportedPreviewSizes().get(0).width);
 			camera.setParameters(params);
 			camera.startPreview();
 		} catch (Exception e) {

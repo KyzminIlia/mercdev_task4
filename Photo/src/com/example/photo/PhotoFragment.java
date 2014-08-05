@@ -16,6 +16,8 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
+import android.hardware.Camera.CameraInfo;
+import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
@@ -27,8 +29,11 @@ import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.view.Display;
 import android.view.LayoutInflater;
+import android.view.Surface;
 import android.view.View;
+import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
@@ -53,6 +58,7 @@ public class PhotoFragment extends Fragment {
 	boolean isPhotoTaken = false;
 	String takePhotoButtonText;
 	ImageButton changeCameraButton;
+	Camera.CameraInfo currentCamInfo;
 
 	@Override
 	public void onStop() {
@@ -64,25 +70,28 @@ public class PhotoFragment extends Fragment {
 
 	public Bitmap rotatePhoto(Bitmap photo) throws IOException {
 		WeakReference<Bitmap> rotatedPhoto = null;
-		ExifInterface exif = new ExifInterface(tempPhotoFile.getPath());
-		int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,
-				ExifInterface.ORIENTATION_NORMAL);
+		Display display = ((WindowManager) getActivity().getSystemService(
+				Context.WINDOW_SERVICE)).getDefaultDisplay();
+		int rotation = display.getRotation();
 		Matrix matrix = new Matrix();
-		switch (orientation) {
-		case ExifInterface.ORIENTATION_ROTATE_90:
-			matrix.postRotate((float) 90);
+		switch (rotation) {
+		case Surface.ROTATION_0:
+			if (currentCamInfo.facing == CameraInfo.CAMERA_FACING_FRONT)
+				matrix.postRotate((float) 270);
+			else
+				matrix.postRotate((float) 90);
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
 					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
-			Log.d(FRAGMENT_TAG, "90 degrees");
+			Log.d(FRAGMENT_TAG, "0 degrees");
 			break;
-		case ExifInterface.ORIENTATION_ROTATE_180:
+		case Surface.ROTATION_180:
 			Log.d(FRAGMENT_TAG, "180 degrees");
 			matrix.postRotate((float) 180);
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
 					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
 			break;
-		case ExifInterface.ORIENTATION_ROTATE_270:
-			matrix.postRotate((float) 270);
+		case Surface.ROTATION_270:
+			matrix.postRotate((float) 180);
 			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
 					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
 			Log.d(FRAGMENT_TAG, "270 degrees");
@@ -106,7 +115,8 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-
+		currentCamInfo = new Camera.CameraInfo();
+		currentCamInfo.facing = CameraInfo.CAMERA_FACING_BACK;
 		if (getActivity().getPackageManager().hasSystemFeature(
 				PackageManager.FEATURE_CAMERA)) {
 			camera = Camera.open();
@@ -178,10 +188,12 @@ public class PhotoFragment extends Fragment {
 					background.setTargetDensity(metrics);
 					camera.stopPreview();
 					photoPreview = new ImageView(getActivity());
-					photoPreview.setImageBitmap(background.getBitmap());
+					photoPreview.setImageBitmap(rotatePhoto(background
+							.getBitmap()));
 					photoView.removeAllViews();
 					photoView.addView(photoPreview);
 					isPhotoTaken = true;
+
 					photoOutput.close();
 
 				} catch (FileNotFoundException e) {
@@ -202,7 +214,7 @@ public class PhotoFragment extends Fragment {
 	public void onResume() {
 		if (preview != null)
 			if (preview.getCamera() == null) {
-				camera = Camera.open();
+				camera = Camera.open(currentCamInfo.facing);
 				if (!isPhotoTaken) {
 					takePhotoButton.setOnClickListener(new TakePhoto());
 					preview.setCamera(camera);
@@ -251,6 +263,7 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
+
 			photoView.removeAllViews();
 			takePhotoButton.setOnClickListener(new TakePhoto());
 			isPhotoTaken = false;
@@ -265,11 +278,16 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
-			Camera.CameraInfo currentCamInfo = new Camera.CameraInfo();
+			if (!isPhotoTaken) {
+				camera.stopPreview();
+			}
+			camera.release();
 			Camera frontCamera = Camera
 					.open(currentCamInfo.CAMERA_FACING_FRONT);
+			currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_FRONT;
 			changeCameraButton.setOnClickListener(new ChangeToBackCamera());
 			preview.setCamera(frontCamera);
+			camera = frontCamera;
 		}
 
 	}
@@ -278,10 +296,15 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
-			Camera.CameraInfo currentCamInfo = new Camera.CameraInfo();
+			if (!isPhotoTaken) {
+				camera.stopPreview();
+			}
+			camera.release();
 			Camera backCamera = Camera.open(currentCamInfo.CAMERA_FACING_BACK);
+			currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_BACK;
 			changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 			preview.setCamera(backCamera);
+			camera = backCamera;
 		}
 
 	}
