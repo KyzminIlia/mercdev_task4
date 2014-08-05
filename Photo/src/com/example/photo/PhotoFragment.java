@@ -5,6 +5,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 import android.content.BroadcastReceiver;
@@ -25,9 +27,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
 import android.media.ExifInterface;
+import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.MediaStore.Images.Media;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
 import android.text.BoringLayout.Metrics;
@@ -56,6 +60,9 @@ public class PhotoFragment extends Fragment {
 	public static final String EXTRA_PHOTO_NAME = "com.example.photo.PHOTO_NAME";
 	FrameLayout photoView;
 	ImageButton takePhotoButton;
+	ImageButton takeVideoButton;
+	MediaRecorder mediaRecorder;
+	File videoFile;
 	BroadcastReceiver photoSaveReceiver;
 	Uri photoUri;
 	File tempPhotoFile;
@@ -74,29 +81,16 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onStop() {
+		if (mediaRecorder != null) {
+			mediaRecorder.stop();
+			mediaRecorder.reset();
+			mediaRecorder.release();
+		}
 		photoView.removeAllViews();
 		preview.setCamera(null);
 		camera.release();
 		super.onStop();
 	}
-
-	private final SensorListener senslisten = new SensorListener() {
-		public void onSensorChanged(int sensor, float[] values) {
-			int pitch = (int) values[2];
-			if (prevPitch == pitch) {
-				RotateAnimation anim = new RotateAnimation(0, pitch);
-				anim.setFillAfter(true);
-				anim.setDuration(0);
-				changeCameraButton.startAnimation(anim);
-				takePhotoButton.startAnimation(anim);
-				prevPitch = pitch;
-			}
-
-		}
-
-		public void onAccuracyChanged(int sensor, int accuracy) {
-		}
-	};
 
 	public Bitmap rotatePhoto(Bitmap photo) throws IOException {
 		WeakReference<Bitmap> rotatedPhoto = null;
@@ -145,16 +139,6 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		sensorManager = (SensorManager) getActivity().getSystemService(
-				Context.SENSOR_SERVICE);
-		sensorManager.registerListener(senslisten,
-				SensorManager.SENSOR_ORIENTATION,
-				SensorManager.SENSOR_DELAY_NORMAL);
-		rotateAnimation = AnimationUtils.loadAnimation(getActivity(),
-				R.anim.rotation);
-		LayoutAnimationController animationController = new LayoutAnimationController(
-				rotateAnimation);
-
 		getActivity().setRequestedOrientation(
 				ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 		currentCamInfo = new Camera.CameraInfo();
@@ -292,10 +276,12 @@ public class PhotoFragment extends Fragment {
 				.findViewById(R.id.take_photo_button);
 		changeCameraButton = (ImageButton) view
 				.findViewById(R.id.change_camera_button);
+		takeVideoButton = (ImageButton) view.findViewById(R.id.take_video);
 		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
 		changeCameraButton.setAnimation(rotateAnimation);
 		takePhotoButton.setAnimation(rotateAnimation);
+		takeVideoButton.setOnClickListener(new RecordVideo());
 		super.onViewCreated(view, savedInstanceState);
 	}
 
@@ -362,6 +348,71 @@ public class PhotoFragment extends Fragment {
 			changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 			preview.setCamera(backCamera);
 			camera = backCamera;
+		}
+
+	}
+
+	class RecordVideo implements OnClickListener {
+
+		@Override
+		public void onClick(View v) {
+			mediaRecorder = new MediaRecorder();
+			camera.unlock();
+			mediaRecorder.setCamera(camera);
+			mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
+			mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+			mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+			mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
+			mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+			mediaRecorder.setPreviewDisplay(preview.getHolder().getSurface());
+			videoFile = Environment
+					.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+			if (!videoFile.exists()) {
+				videoFile.mkdir();
+			}
+			String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
+					.format(new Date());
+
+			videoFile = new File(videoFile.getPath(), "video - " + timeStamp
+					+ ".mp4");
+			try {
+				videoFile.createNewFile();
+			} catch (IOException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			mediaRecorder.setOutputFile(videoFile.getPath().toString());
+			try {
+				mediaRecorder.prepare();
+				mediaRecorder.start();
+			} catch (IllegalStateException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+
+				e.printStackTrace();
+			}
+			takeVideoButton.setOnClickListener(new StopVideo());
+			takePhotoButton.setEnabled(false);
+			changeCameraButton.setEnabled(false);
+		}
+	}
+
+	class StopVideo implements OnClickListener {
+
+		@Override
+		public void onClick(View v) {
+			mediaRecorder.stop();
+			mediaRecorder.reset();
+			mediaRecorder.release();
+			takeVideoButton.setOnClickListener(new RecordVideo());
+			takePhotoButton.setEnabled(true);
+			changeCameraButton.setEnabled(true);
+			try {
+				camera.reconnect();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 
 	}
