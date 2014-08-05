@@ -5,11 +5,13 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.util.List;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -20,6 +22,7 @@ import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.Sensor;
+import android.hardware.SensorListener;
 import android.hardware.SensorManager;
 import android.media.ExifInterface;
 import android.net.Uri;
@@ -27,15 +30,21 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
+import android.text.BoringLayout.Metrics;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
+import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.view.animation.LayoutAnimationController;
+import android.view.animation.RotateAnimation;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -59,6 +68,9 @@ public class PhotoFragment extends Fragment {
 	String takePhotoButtonText;
 	ImageButton changeCameraButton;
 	Camera.CameraInfo currentCamInfo;
+	Animation rotateAnimation;
+	SensorManager sensorManager;
+	int prevPitch = 0;
 
 	@Override
 	public void onStop() {
@@ -67,6 +79,24 @@ public class PhotoFragment extends Fragment {
 		camera.release();
 		super.onStop();
 	}
+
+	private final SensorListener senslisten = new SensorListener() {
+		public void onSensorChanged(int sensor, float[] values) {
+			int pitch = (int) values[2];
+			if (prevPitch == pitch) {
+				RotateAnimation anim = new RotateAnimation(0, pitch);
+				anim.setFillAfter(true);
+				anim.setDuration(0);
+				changeCameraButton.startAnimation(anim);
+				takePhotoButton.startAnimation(anim);
+				prevPitch = pitch;
+			}
+
+		}
+
+		public void onAccuracyChanged(int sensor, int accuracy) {
+		}
+	};
 
 	public Bitmap rotatePhoto(Bitmap photo) throws IOException {
 		WeakReference<Bitmap> rotatedPhoto = null;
@@ -115,6 +145,18 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
+		sensorManager = (SensorManager) getActivity().getSystemService(
+				Context.SENSOR_SERVICE);
+		sensorManager.registerListener(senslisten,
+				SensorManager.SENSOR_ORIENTATION,
+				SensorManager.SENSOR_DELAY_NORMAL);
+		rotateAnimation = AnimationUtils.loadAnimation(getActivity(),
+				R.anim.rotation);
+		LayoutAnimationController animationController = new LayoutAnimationController(
+				rotateAnimation);
+
+		getActivity().setRequestedOrientation(
+				ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 		currentCamInfo = new Camera.CameraInfo();
 		currentCamInfo.facing = CameraInfo.CAMERA_FACING_BACK;
 		if (getActivity().getPackageManager().hasSystemFeature(
@@ -123,6 +165,17 @@ public class PhotoFragment extends Fragment {
 			preview = new CameraPreview(getActivity());
 			preview.setCamera(camera);
 			Log.d(FRAGMENT_TAG, "camera supported");
+			Camera.Parameters params = camera.getParameters();
+			List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+			Display display = ((WindowManager) getActivity().getSystemService(
+					Context.WINDOW_SERVICE)).getDefaultDisplay();
+			DisplayMetrics metrics = new DisplayMetrics();
+			display.getMetrics(metrics);
+
+			int mFrameWidth = (int) (sizes.get(0).width * metrics.density);
+			int mFrameHeight = (int) (sizes.get(0).height * metrics.density);
+
+			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
 		}
 		photoSaveReceiver = new BroadcastReceiver() {
 
@@ -188,12 +241,13 @@ public class PhotoFragment extends Fragment {
 					background.setTargetDensity(metrics);
 					camera.stopPreview();
 					photoPreview = new ImageView(getActivity());
+					getActivity().setRequestedOrientation(
+							ActivityInfo.SCREEN_ORIENTATION_SENSOR);
 					photoPreview.setImageBitmap(rotatePhoto(background
 							.getBitmap()));
 					photoView.removeAllViews();
 					photoView.addView(photoPreview);
 					isPhotoTaken = true;
-
 					photoOutput.close();
 
 				} catch (FileNotFoundException e) {
@@ -240,6 +294,8 @@ public class PhotoFragment extends Fragment {
 				.findViewById(R.id.change_camera_button);
 		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
+		changeCameraButton.setAnimation(rotateAnimation);
+		takePhotoButton.setAnimation(rotateAnimation);
 		super.onViewCreated(view, savedInstanceState);
 	}
 
@@ -263,12 +319,13 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
-
 			photoView.removeAllViews();
 			takePhotoButton.setOnClickListener(new TakePhoto());
 			isPhotoTaken = false;
 			photoView.addView(preview);
 			preview.setCamera(camera);
+			getActivity().setRequestedOrientation(
+					ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
 
 		}
 

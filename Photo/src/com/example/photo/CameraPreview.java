@@ -19,11 +19,9 @@ import android.view.ViewGroup.LayoutParams;
 import android.view.WindowManager;
 
 public class CameraPreview extends SurfaceView implements
-		SurfaceHolder.Callback, SensorEventListener {
+		SurfaceHolder.Callback {
 	private SurfaceHolder holder;
 	private Camera camera;
-	Sensor orientationSensor;
-	SensorManager sensManager;
 	float curOrientation;
 
 	public Camera getCamera() {
@@ -44,28 +42,6 @@ public class CameraPreview extends SurfaceView implements
 		if (this.camera != null) {
 			try {
 				this.camera.setPreviewDisplay(holder);
-				Display display = ((WindowManager) getContext()
-						.getSystemService(Context.WINDOW_SERVICE))
-						.getDefaultDisplay();
-				int rotation = display.getRotation();
-				Parameters params = camera.getParameters();
-				switch (rotation) {
-				case Surface.ROTATION_0:
-					camera.setDisplayOrientation(90);
-					break;
-				case Surface.ROTATION_270:
-					camera.setDisplayOrientation(180);
-					break;
-				case Surface.ROTATION_180:
-					camera.setDisplayOrientation(180);
-					break;
-
-				}
-				params.setPreviewSize(camera.getParameters()
-						.getSupportedPreviewSizes().get(0).width,
-						camera.getParameters().getSupportedPreviewSizes()
-								.get(0).width);
-				camera.setParameters(params);
 				this.camera.startPreview();
 
 			} catch (IOException e) {
@@ -76,12 +52,9 @@ public class CameraPreview extends SurfaceView implements
 
 	@Override
 	public void surfaceCreated(SurfaceHolder arg0) {
-		sensManager = (SensorManager) getContext().getSystemService(
-				Context.SENSOR_SERVICE);
-		sensManager.registerListener(this, orientationSensor,
-				SensorManager.SENSOR_DELAY_NORMAL);
 		if (camera != null)
 			try {
+
 				camera.setPreviewDisplay(holder);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -106,38 +79,8 @@ public class CameraPreview extends SurfaceView implements
 
 		try {
 
-			Display display = ((WindowManager) getContext().getSystemService(
-					Context.WINDOW_SERVICE)).getDefaultDisplay();
-			int rotation = display.getRotation();
-			Parameters params = camera.getParameters();
-			switch (rotation) {
-			case Surface.ROTATION_0:
-				camera.setDisplayOrientation(90);
-				break;
-			case Surface.ROTATION_270:
-				camera.setDisplayOrientation(180);
-				break;
-			case Surface.ROTATION_180:
-				camera.setDisplayOrientation(180);
-				break;
-
-			}
-			params.setPreviewSize(camera.getParameters()
-					.getSupportedPreviewSizes().get(0).width, camera
-					.getParameters().getSupportedPreviewSizes().get(0).width);
-			camera.setParameters(params);
 			camera.startPreview();
 		} catch (Exception e) {
 		}
-	}
-
-	@Override
-	public void onAccuracyChanged(Sensor sensor, int accuracy) {
-	}
-
-	@Override
-	public void onSensorChanged(SensorEvent event) {
-		curOrientation = event.values[1];
-
 	}
 }
