@@ -54,7 +54,6 @@ public class CameraPreview extends SurfaceView implements
 	public void surfaceCreated(SurfaceHolder arg0) {
 		if (camera != null)
 			try {
-
 				camera.setPreviewDisplay(holder);
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -63,7 +62,6 @@ public class CameraPreview extends SurfaceView implements
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder arg0) {
-
 	}
 
 	@Override

@@ -72,6 +72,7 @@ public class PhotoFragment extends Fragment {
 	PictureCallback picture;
 	ImageView photoPreview;
 	boolean isPhotoTaken = false;
+	boolean isStopped = false;
 	String takePhotoButtonText;
 	ImageButton changeCameraButton;
 	Camera.CameraInfo currentCamInfo;
@@ -80,15 +81,43 @@ public class PhotoFragment extends Fragment {
 	int prevPitch = 0;
 
 	@Override
+	public void onDestroy() {
+		if (mediaRecorder != null) {
+			mediaRecorder.stop();
+			mediaRecorder.reset();
+			mediaRecorder.release();
+			mediaRecorder = null;
+		}
+		if (camera != null) {
+			photoView.removeAllViews();
+			preview.setCamera(null);
+			camera.release();
+			camera = null;
+		}
+		Log.d(FRAGMENT_TAG, "onDestroy");
+		super.onDestroy();
+	}
+
+	@Override
+	public void onDestroyView() {
+		Log.d(FRAGMENT_TAG, "onDestroyView");
+		photoView.removeAllViews();
+		super.onDestroyView();
+	}
+
+	@Override
 	public void onStop() {
 		if (mediaRecorder != null && !isPhotoTaken) {
 			mediaRecorder.stop();
 			mediaRecorder.reset();
 			mediaRecorder.release();
+			mediaRecorder = null;
 		}
-		photoView.removeAllViews();
-		preview.setCamera(null);
+		isStopped = true;
 		camera.release();
+		camera = null;
+		preview.setCamera(null);
+		Log.d(FRAGMENT_TAG, "onStop");
 		super.onStop();
 	}
 
@@ -141,12 +170,12 @@ public class PhotoFragment extends Fragment {
 	public void onCreate(Bundle savedInstanceState) {
 		getActivity().setRequestedOrientation(
 				ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+		preview = new CameraPreview(getActivity());
 		currentCamInfo = new Camera.CameraInfo();
 		currentCamInfo.facing = CameraInfo.CAMERA_FACING_BACK;
 		if (getActivity().getPackageManager().hasSystemFeature(
 				PackageManager.FEATURE_CAMERA)) {
 			camera = Camera.open();
-			preview = new CameraPreview(getActivity());
 			preview.setCamera(camera);
 			Log.d(FRAGMENT_TAG, "camera supported");
 			Camera.Parameters params = camera.getParameters();
@@ -255,30 +284,32 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onResume() {
-		if (preview != null)
-			if (preview.getCamera() == null) {
-				camera = Camera.open(currentCamInfo.facing);
-				if (!isPhotoTaken) {
-					takePhotoButton.setOnClickListener(new TakePhoto());
-					preview.setCamera(camera);
-				} else {
-					takeVideoButton.setEnabled(false);
-					changeCameraButton.setEnabled(false);
-					takePhotoButton.setOnClickListener(new RetakePhoto());
-				}
-			}
+		if (preview.getCamera() == null) {
+			camera = Camera.open(currentCamInfo.facing);
+			preview.setCamera(camera);
+			if (!isPhotoTaken) {
+				takePhotoButton.setOnClickListener(new TakePhoto());
 
+			} else {
+				takeVideoButton.setEnabled(false);
+				changeCameraButton.setEnabled(false);
+				takePhotoButton.setOnClickListener(new RetakePhoto());
+			}
+		}
+		Log.d(FRAGMENT_TAG, "onResume");
 		super.onResume();
 	}
 
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
-		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
 
+		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
 		if (!isPhotoTaken) {
 			photoView.addView(preview);
-		} else
+		} else {
 			photoView.addView(photoPreview);
+		}
+
 		takePhotoButton = (ImageButton) view
 				.findViewById(R.id.take_photo_button);
 		changeCameraButton = (ImageButton) view
