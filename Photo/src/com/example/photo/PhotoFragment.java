@@ -160,6 +160,21 @@ public class PhotoFragment extends Fragment {
 		return photoUri;
 	}
 
+	private Camera.Size getBestPreviewSize(Camera.Parameters parameters) {
+		Camera.Size bestSize = null;
+		List<Camera.Size> sizeList = parameters.getSupportedPreviewSizes();
+
+		bestSize = sizeList.get(0);
+
+		for (int i = 1; i < sizeList.size(); i++) {
+			if ((sizeList.get(i).width * sizeList.get(i).height) > (bestSize.width * bestSize.height)) {
+				bestSize = sizeList.get(i);
+			}
+		}
+
+		return bestSize;
+	}
+
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		getActivity().setRequestedOrientation(
@@ -178,9 +193,9 @@ public class PhotoFragment extends Fragment {
 					Context.WINDOW_SERVICE)).getDefaultDisplay();
 			DisplayMetrics metrics = new DisplayMetrics();
 			display.getMetrics(metrics);
-			mFrameWidth = (int) (sizes.get(0).width);
-			mFrameHeight = (int) (sizes.get(0).height);
-			// params.setPreviewSize(mFrameWidth, mFrameHeight);
+			mFrameWidth = (int) (getBestPreviewSize(params).width );
+			mFrameHeight = (int) (getBestPreviewSize(params).height);
+			//params.setPreviewSize(mFrameWidth, mFrameHeight);
 			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
 
 			params.set("cam_mode", 1);
@@ -324,10 +339,13 @@ public class PhotoFragment extends Fragment {
 		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
 		takeVideoButton.setOnClickListener(new RecordVideo());
-		takePhotoButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
-		takeVideoButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
-		changeCameraButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
-		
+		takePhotoButton.getBackground().setColorFilter(
+				new LightingColorFilter(0xFF0000, 0xFF0000));
+		takeVideoButton.getBackground().setColorFilter(
+				new LightingColorFilter(0xFF0000, 0xFF0000));
+		changeCameraButton.getBackground().setColorFilter(
+				new LightingColorFilter(0xFF0000, 0xFF0000));
+
 		super.onViewCreated(view, savedInstanceState);
 	}
 
