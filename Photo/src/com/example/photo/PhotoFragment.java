@@ -81,7 +81,7 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onStop() {
-		if (mediaRecorder != null) {
+		if (mediaRecorder != null && !isPhotoTaken) {
 			mediaRecorder.stop();
 			mediaRecorder.reset();
 			mediaRecorder.release();
@@ -193,6 +193,11 @@ public class PhotoFragment extends Fragment {
 						photoOutput);
 				photo = null;
 				tempPhotoFile.delete();
+				try {
+					photoOutput.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 		};
 		picture = new PictureCallback() {
@@ -257,6 +262,8 @@ public class PhotoFragment extends Fragment {
 					takePhotoButton.setOnClickListener(new TakePhoto());
 					preview.setCamera(camera);
 				} else {
+					takeVideoButton.setEnabled(false);
+					changeCameraButton.setEnabled(false);
 					takePhotoButton.setOnClickListener(new RetakePhoto());
 				}
 			}
@@ -268,9 +275,9 @@ public class PhotoFragment extends Fragment {
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
 
-		if (!isPhotoTaken)
+		if (!isPhotoTaken) {
 			photoView.addView(preview);
-		else
+		} else
 			photoView.addView(photoPreview);
 		takePhotoButton = (ImageButton) view
 				.findViewById(R.id.take_photo_button);
@@ -279,8 +286,6 @@ public class PhotoFragment extends Fragment {
 		takeVideoButton = (ImageButton) view.findViewById(R.id.take_video);
 		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
-		changeCameraButton.setAnimation(rotateAnimation);
-		takePhotoButton.setAnimation(rotateAnimation);
 		takeVideoButton.setOnClickListener(new RecordVideo());
 		super.onViewCreated(view, savedInstanceState);
 	}
@@ -298,6 +303,9 @@ public class PhotoFragment extends Fragment {
 		public void onClick(View v) {
 			camera.takePicture(null, null, picture);
 			takePhotoButton.setOnClickListener(new RetakePhoto());
+			takeVideoButton.setEnabled(false);
+			changeCameraButton.setEnabled(false);
+
 		}
 	}
 
@@ -312,6 +320,8 @@ public class PhotoFragment extends Fragment {
 			preview.setCamera(camera);
 			getActivity().setRequestedOrientation(
 					ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+			takeVideoButton.setEnabled(true);
+			changeCameraButton.setEnabled(true);
 
 		}
 
@@ -357,6 +367,7 @@ public class PhotoFragment extends Fragment {
 		@Override
 		public void onClick(View v) {
 			mediaRecorder = new MediaRecorder();
+			camera.stopPreview();
 			camera.unlock();
 			mediaRecorder.setCamera(camera);
 			mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
@@ -378,7 +389,7 @@ public class PhotoFragment extends Fragment {
 			try {
 				videoFile.createNewFile();
 			} catch (IOException e1) {
-				// TODO Auto-generated catch block
+
 				e1.printStackTrace();
 			}
 			mediaRecorder.setOutputFile(videoFile.getPath().toString());
@@ -404,13 +415,14 @@ public class PhotoFragment extends Fragment {
 			mediaRecorder.stop();
 			mediaRecorder.reset();
 			mediaRecorder.release();
+			mediaRecorder = null;
 			takeVideoButton.setOnClickListener(new RecordVideo());
 			takePhotoButton.setEnabled(true);
 			changeCameraButton.setEnabled(true);
 			try {
 				camera.reconnect();
+				camera.startPreview();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
