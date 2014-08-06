@@ -26,6 +26,7 @@ import android.hardware.Camera.PictureCallback;
 import android.hardware.Sensor;
 import android.hardware.SensorListener;
 import android.hardware.SensorManager;
+import android.media.CamcorderProfile;
 import android.media.ExifInterface;
 import android.media.MediaRecorder;
 import android.net.Uri;
@@ -73,12 +74,16 @@ public class PhotoFragment extends Fragment {
 	ImageView photoPreview;
 	boolean isPhotoTaken = false;
 	boolean isStopped = false;
+	boolean isRecordingVideo = false;
 	String takePhotoButtonText;
 	ImageButton changeCameraButton;
 	Camera.CameraInfo currentCamInfo;
 	Animation rotateAnimation;
 	SensorManager sensorManager;
 	int prevPitch = 0;
+	int mFrameWidth;
+	int mFrameHeight;
+	List<Camera.Size> sizes;
 
 	@Override
 	public void onDestroy() {
@@ -107,16 +112,12 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onStop() {
-		if (mediaRecorder != null && !isPhotoTaken) {
-			mediaRecorder.stop();
-			mediaRecorder.reset();
-			mediaRecorder.release();
-			mediaRecorder = null;
+		if (!isRecordingVideo) {
+			isStopped = true;
+			camera.release();
+			camera = null;
+			preview.setCamera(null);
 		}
-		isStopped = true;
-		camera.release();
-		camera = null;
-		preview.setCamera(null);
 		Log.d(FRAGMENT_TAG, "onStop");
 		super.onStop();
 	}
@@ -179,16 +180,18 @@ public class PhotoFragment extends Fragment {
 			preview.setCamera(camera);
 			Log.d(FRAGMENT_TAG, "camera supported");
 			Camera.Parameters params = camera.getParameters();
-			List<Camera.Size> sizes = params.getSupportedPreviewSizes();
+			sizes = params.getSupportedPreviewSizes();
 			Display display = ((WindowManager) getActivity().getSystemService(
 					Context.WINDOW_SERVICE)).getDefaultDisplay();
 			DisplayMetrics metrics = new DisplayMetrics();
 			display.getMetrics(metrics);
-
-			int mFrameWidth = (int) (sizes.get(0).width * metrics.density);
-			int mFrameHeight = (int) (sizes.get(0).height * metrics.density);
-
+			mFrameWidth = (int) (sizes.get(0).width * metrics.density);
+			mFrameHeight = (int) (sizes.get(0).height * metrics.density);
+			params.setPreviewSize(mFrameWidth, mFrameHeight);
 			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
+			params.set("cam_mode", 1);
+			params.setFocusMode(Camera.Parameters.FOCUS_MODE_INFINITY);
+			camera.setParameters(params);
 		}
 		photoSaveReceiver = new BroadcastReceiver() {
 
@@ -284,7 +287,7 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onResume() {
-		if (preview.getCamera() == null) {
+		if (preview.getCamera() == null && !isRecordingVideo) {
 			camera = Camera.open(currentCamInfo.facing);
 			preview.setCamera(camera);
 			if (!isPhotoTaken) {
@@ -295,6 +298,13 @@ public class PhotoFragment extends Fragment {
 				changeCameraButton.setEnabled(false);
 				takePhotoButton.setOnClickListener(new RetakePhoto());
 			}
+
+		} else if (isRecordingVideo) {
+			takeVideoButton.setOnClickListener(new StopVideo());
+			takePhotoButton.setEnabled(false);
+			changeCameraButton.setEnabled(false);
+			preview.setCamera(camera);
+
 		}
 		Log.d(FRAGMENT_TAG, "onResume");
 		super.onResume();
@@ -304,7 +314,9 @@ public class PhotoFragment extends Fragment {
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 
 		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
-		if (!isPhotoTaken) {
+		if (isRecordingVideo) {
+			photoView.addView(preview);
+		} else if (!isPhotoTaken) {
 			photoView.addView(preview);
 		} else {
 			photoView.addView(photoPreview);
@@ -372,6 +384,7 @@ public class PhotoFragment extends Fragment {
 			changeCameraButton.setOnClickListener(new ChangeToBackCamera());
 			preview.setCamera(frontCamera);
 			camera = frontCamera;
+
 		}
 
 	}
@@ -397,15 +410,19 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
+			isRecordingVideo = true;
 			mediaRecorder = new MediaRecorder();
 			camera.stopPreview();
 			camera.unlock();
+			CamcorderProfile camProfile = CamcorderProfile
+					.get(CamcorderProfile.QUALITY_HIGH);
+			camProfile.videoFrameHeight = sizes.get(0).height;
+			camProfile.videoFrameWidth = sizes.get(0).width;
+
 			mediaRecorder.setCamera(camera);
 			mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
 			mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-			mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-			mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
-			mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.DEFAULT);
+			mediaRecorder.setProfile(camProfile);
 			mediaRecorder.setPreviewDisplay(preview.getHolder().getSurface());
 			videoFile = Environment
 					.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
@@ -450,6 +467,7 @@ public class PhotoFragment extends Fragment {
 			takeVideoButton.setOnClickListener(new RecordVideo());
 			takePhotoButton.setEnabled(true);
 			changeCameraButton.setEnabled(true);
+			isRecordingVideo = false;
 			try {
 				camera.reconnect();
 				camera.startPreview();
