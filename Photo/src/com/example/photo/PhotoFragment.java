@@ -221,22 +221,22 @@ public class PhotoFragment extends Fragment {
 					FileOutputStream photoOutput = new FileOutputStream(
 							tempPhotoFile);
 					photoOutput.write(data);
-					BitmapDrawable background = new BitmapDrawable(
+					BitmapDrawable photo = new BitmapDrawable(
 							tempPhotoFile.getPath());
 					DisplayMetrics metrics = new DisplayMetrics();
 					getActivity().getWindowManager().getDefaultDisplay()
 							.getMetrics(metrics);
-					background.setDither(false);
-					background.setTargetDensity(metrics);
+					photo.setDither(false);
+					photo.setTargetDensity(metrics);
 					camera.stopPreview();
 					photoPreview = new ImageView(getActivity());
 					getActivity().setRequestedOrientation(
 							ActivityInfo.SCREEN_ORIENTATION_SENSOR);
-					photoPreview.setImageBitmap(rotatePhoto(background
-							.getBitmap()));
+					photoPreview.setImageBitmap(rotatePhoto(photo.getBitmap()));
 					photoView.removeAllViews();
 					photoView.addView(photoPreview);
 					isPhotoTaken = true;
+					photo = null;
 					photoOutput.close();
 
 				} catch (FileNotFoundException e) {
