@@ -17,14 +17,12 @@ import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.LightingColorFilter;
 import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
-import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
-import android.hardware.Sensor;
-import android.hardware.SensorListener;
 import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
 import android.media.ExifInterface;
@@ -32,10 +30,8 @@ import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.provider.MediaStore.Images.Media;
 import android.support.v4.app.Fragment;
 import android.support.v4.content.LocalBroadcastManager;
-import android.text.BoringLayout.Metrics;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -47,9 +43,6 @@ import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.view.animation.Animation;
-import android.view.animation.AnimationUtils;
-import android.view.animation.LayoutAnimationController;
-import android.view.animation.RotateAnimation;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
@@ -185,10 +178,11 @@ public class PhotoFragment extends Fragment {
 					Context.WINDOW_SERVICE)).getDefaultDisplay();
 			DisplayMetrics metrics = new DisplayMetrics();
 			display.getMetrics(metrics);
-			mFrameWidth = (int) (sizes.get(0).width * metrics.density);
-			mFrameHeight = (int) (sizes.get(0).height * metrics.density);
-			params.setPreviewSize(mFrameWidth, mFrameHeight);
+			mFrameWidth = (int) (sizes.get(0).width);
+			mFrameHeight = (int) (sizes.get(0).height);
+			// params.setPreviewSize(mFrameWidth, mFrameHeight);
 			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
+
 			params.set("cam_mode", 1);
 			params.setFocusMode(Camera.Parameters.FOCUS_MODE_INFINITY);
 			camera.setParameters(params);
@@ -330,6 +324,10 @@ public class PhotoFragment extends Fragment {
 		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
 		takePhotoButton.setOnClickListener(new TakePhoto());
 		takeVideoButton.setOnClickListener(new RecordVideo());
+		takePhotoButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
+		takeVideoButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
+		changeCameraButton.getBackground().setColorFilter(new LightingColorFilter(0xFF0000, 0xFF0000));
+		
 		super.onViewCreated(view, savedInstanceState);
 	}
 
