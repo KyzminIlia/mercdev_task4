@@ -22,6 +22,7 @@ import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
+import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
@@ -105,8 +106,8 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onStop() {
-		if (!isRecordingVideo) {
-			isStopped = true;
+		isStopped = true;
+		if (camera != null && !isRecordingVideo) {
 			camera.release();
 			camera = null;
 			preview.setCamera(null);
@@ -115,8 +116,14 @@ public class PhotoFragment extends Fragment {
 		super.onStop();
 	}
 
-	public Bitmap rotatePhoto(Bitmap photo) throws IOException {
+	public void rotatePhoto() throws IOException {
 		WeakReference<Bitmap> rotatedPhoto = null;
+		BitmapDrawable photo = new BitmapDrawable(tempPhotoFile.getPath());
+		DisplayMetrics metrics = new DisplayMetrics();
+		getActivity().getWindowManager().getDefaultDisplay()
+				.getMetrics(metrics);
+		photo.setDither(false);
+		photo.setTargetDensity(metrics);
 		Display display = ((WindowManager) getActivity().getSystemService(
 				Context.WINDOW_SERVICE)).getDefaultDisplay();
 		int rotation = display.getRotation();
@@ -127,33 +134,42 @@ public class PhotoFragment extends Fragment {
 				matrix.postRotate((float) 270);
 			else
 				matrix.postRotate((float) 90);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
-					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(
+					photo.getBitmap(), 0, 0, photo.getBitmap().getWidth(),
+					photo.getBitmap().getHeight(), matrix, true));
 			Log.d(FRAGMENT_TAG, "0 degrees");
 			break;
 		case Surface.ROTATION_180:
 			Log.d(FRAGMENT_TAG, "180 degrees");
 			matrix.postRotate((float) 180);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
-					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(
+					photo.getBitmap(), 0, 0, photo.getBitmap().getWidth(),
+					photo.getBitmap().getHeight(), matrix, true));
 			break;
 		case Surface.ROTATION_270:
 			matrix.postRotate((float) 180);
-			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(photo,
-					0, 0, photo.getWidth(), photo.getHeight(), matrix, true));
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(
+					photo.getBitmap(), 0, 0, photo.getBitmap().getWidth(),
+					photo.getBitmap().getHeight(), matrix, true));
 			Log.d(FRAGMENT_TAG, "270 degrees");
 			break;
 		case ExifInterface.ORIENTATION_NORMAL:
 			Log.d(FRAGMENT_TAG, "Normal");
-			rotatedPhoto = new WeakReference<Bitmap>(photo);
+			if (currentCamInfo.facing == CameraInfo.CAMERA_FACING_FRONT)
+				matrix.postRotate((float) 270);
+			else
+				matrix.postRotate((float) 0);
+			rotatedPhoto = new WeakReference<Bitmap>(Bitmap.createBitmap(
+					photo.getBitmap(), 0, 0, photo.getBitmap().getWidth(),
+					photo.getBitmap().getHeight(), matrix, true));
 			break;
 		}
 		FileOutputStream photoOutput = new FileOutputStream(
 				tempPhotoFile.getPath());
 		rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
 				photoOutput);
+		photo = null;
 		photoOutput.close();
-		return rotatedPhoto.get();
 	}
 
 	public Uri getPhotoUri() {
@@ -193,9 +209,9 @@ public class PhotoFragment extends Fragment {
 					Context.WINDOW_SERVICE)).getDefaultDisplay();
 			DisplayMetrics metrics = new DisplayMetrics();
 			display.getMetrics(metrics);
-			mFrameWidth = (int) (getBestPreviewSize(params).width );
+			mFrameWidth = (int) (getBestPreviewSize(params).width);
 			mFrameHeight = (int) (getBestPreviewSize(params).height);
-			//params.setPreviewSize(mFrameWidth, mFrameHeight);
+			params.setPreviewSize(mFrameWidth, mFrameHeight);
 			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
 
 			params.set("cam_mode", 1);
@@ -262,18 +278,19 @@ public class PhotoFragment extends Fragment {
 					FileOutputStream photoOutput = new FileOutputStream(
 							tempPhotoFile);
 					photoOutput.write(data);
-					BitmapDrawable photo = new BitmapDrawable(
-							tempPhotoFile.getPath());
 					DisplayMetrics metrics = new DisplayMetrics();
 					getActivity().getWindowManager().getDefaultDisplay()
 							.getMetrics(metrics);
-					photo.setDither(false);
-					photo.setTargetDensity(metrics);
 					camera.stopPreview();
 					photoPreview = new ImageView(getActivity());
 					getActivity().setRequestedOrientation(
 							ActivityInfo.SCREEN_ORIENTATION_SENSOR);
-					photoPreview.setImageBitmap(rotatePhoto(photo.getBitmap()));
+					rotatePhoto();
+					BitmapDrawable photo = new BitmapDrawable(
+							tempPhotoFile.getPath());
+					photo.setDither(false);
+					photo.setTargetDensity(metrics);
+					photoPreview.setImageBitmap(photo.getBitmap());
 					photoView.removeAllViews();
 					photoView.addView(photoPreview);
 					isPhotoTaken = true;
@@ -308,12 +325,12 @@ public class PhotoFragment extends Fragment {
 				takePhotoButton.setOnClickListener(new RetakePhoto());
 			}
 
-		} else if (isRecordingVideo) {
+		}
+		if (isRecordingVideo) {
 			takeVideoButton.setOnClickListener(new StopVideo());
 			takePhotoButton.setEnabled(false);
 			changeCameraButton.setEnabled(false);
 			preview.setCamera(camera);
-
 		}
 		Log.d(FRAGMENT_TAG, "onResume");
 		super.onResume();
@@ -432,8 +449,6 @@ public class PhotoFragment extends Fragment {
 			camera.unlock();
 			CamcorderProfile camProfile = CamcorderProfile
 					.get(CamcorderProfile.QUALITY_HIGH);
-			camProfile.videoFrameHeight = sizes.get(0).height;
-			camProfile.videoFrameWidth = sizes.get(0).width;
 
 			mediaRecorder.setCamera(camera);
 			mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
@@ -460,6 +475,7 @@ public class PhotoFragment extends Fragment {
 			try {
 				mediaRecorder.prepare();
 				mediaRecorder.start();
+				Log.d(FRAGMENT_TAG, "video record started");
 			} catch (IllegalStateException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -477,6 +493,7 @@ public class PhotoFragment extends Fragment {
 		@Override
 		public void onClick(View v) {
 			mediaRecorder.stop();
+			Log.d(FRAGMENT_TAG, "video record stopped");
 			mediaRecorder.reset();
 			mediaRecorder.release();
 			mediaRecorder = null;
@@ -486,7 +503,7 @@ public class PhotoFragment extends Fragment {
 			isRecordingVideo = false;
 			try {
 				camera.reconnect();
-				camera.startPreview();
+				//camera.startPreview();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

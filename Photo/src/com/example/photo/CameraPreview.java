@@ -43,7 +43,6 @@ public class CameraPreview extends SurfaceView implements
 			try {
 				this.camera.setPreviewDisplay(holder);
 				this.camera.startPreview();
-
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
@@ -55,6 +54,7 @@ public class CameraPreview extends SurfaceView implements
 		if (camera != null)
 			try {
 				camera.setPreviewDisplay(holder);
+				camera.startPreview();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
