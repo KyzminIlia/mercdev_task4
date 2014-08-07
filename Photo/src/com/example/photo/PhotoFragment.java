@@ -19,10 +19,10 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.LightingColorFilter;
 import android.graphics.Matrix;
+import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
-import android.hardware.Camera.Parameters;
 import android.hardware.Camera.PictureCallback;
 import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
@@ -39,10 +39,10 @@ import android.view.Display;
 import android.view.LayoutInflater;
 import android.view.Surface;
 import android.view.View;
-import android.view.ViewGroup.LayoutParams;
-import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+import android.view.WindowManager;
 import android.view.animation.Animation;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
@@ -107,11 +107,19 @@ public class PhotoFragment extends Fragment {
 	@Override
 	public void onStop() {
 		isStopped = true;
-		if (camera != null && !isRecordingVideo) {
+		if (mediaRecorder != null) {
+			mediaRecorder.stop();
+			mediaRecorder.reset();
+			mediaRecorder.release();
+			mediaRecorder = null;
+			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
+		}
+		if (camera != null) {
 			camera.release();
 			camera = null;
 			preview.setCamera(null);
 		}
+
 		Log.d(FRAGMENT_TAG, "onStop");
 		super.onStop();
 	}
@@ -211,10 +219,13 @@ public class PhotoFragment extends Fragment {
 			display.getMetrics(metrics);
 			mFrameWidth = (int) (getBestPreviewSize(params).width);
 			mFrameHeight = (int) (getBestPreviewSize(params).height);
-			params.setPreviewSize(mFrameWidth, mFrameHeight);
-			preview.setLayoutParams(new LayoutParams(mFrameWidth, mFrameHeight));
+			preview.setLayoutParams(new LayoutParams(
+					(int) (mFrameWidth / metrics.density),
+					(int) (mFrameHeight / metrics.density)));
 
 			params.set("cam_mode", 1);
+			params.setZoom(0);
+			params.setPictureSize(mFrameWidth, mFrameHeight);
 			params.setFocusMode(Camera.Parameters.FOCUS_MODE_INFINITY);
 			camera.setParameters(params);
 		}
@@ -313,7 +324,7 @@ public class PhotoFragment extends Fragment {
 
 	@Override
 	public void onResume() {
-		if (preview.getCamera() == null && !isRecordingVideo) {
+		if (preview.getCamera() == null) {
 			camera = Camera.open(currentCamInfo.facing);
 			preview.setCamera(camera);
 			if (!isPhotoTaken) {
@@ -326,12 +337,7 @@ public class PhotoFragment extends Fragment {
 			}
 
 		}
-		if (isRecordingVideo) {
-			takeVideoButton.setOnClickListener(new StopVideo());
-			takePhotoButton.setEnabled(false);
-			changeCameraButton.setEnabled(false);
-			preview.setCamera(camera);
-		}
+
 		Log.d(FRAGMENT_TAG, "onResume");
 		super.onResume();
 	}
@@ -444,6 +450,8 @@ public class PhotoFragment extends Fragment {
 		@Override
 		public void onClick(View v) {
 			isRecordingVideo = true;
+			takeVideoButton
+					.setImageResource(R.drawable.stop_recording_video_ico);
 			mediaRecorder = new MediaRecorder();
 			camera.stopPreview();
 			camera.unlock();
@@ -492,18 +500,23 @@ public class PhotoFragment extends Fragment {
 
 		@Override
 		public void onClick(View v) {
-			mediaRecorder.stop();
+			try {
+				mediaRecorder.stop();
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
 			Log.d(FRAGMENT_TAG, "video record stopped");
 			mediaRecorder.reset();
 			mediaRecorder.release();
 			mediaRecorder = null;
 			takeVideoButton.setOnClickListener(new RecordVideo());
 			takePhotoButton.setEnabled(true);
+			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
 			changeCameraButton.setEnabled(true);
 			isRecordingVideo = false;
 			try {
 				camera.reconnect();
-				//camera.startPreview();
+				// camera.startPreview();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
