@@ -115,6 +115,9 @@ public class PhotoFragment extends Fragment {
 			mediaRecorder.release();
 			mediaRecorder = null;
 			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
+			takeVideoButton.setOnClickListener(new RecordVideo());
+			takePhotoButton.setEnabled(true);
+			changeCameraButton.setEnabled(true);
 		}
 		if (camera != null) {
 			camera.release();
@@ -124,6 +127,26 @@ public class PhotoFragment extends Fragment {
 
 		Log.d(FRAGMENT_TAG, "onStop");
 		super.onStop();
+	}
+
+	@Override
+	public void onPause() {
+		if (mediaRecorder != null) {
+			mediaRecorder.stop();
+			mediaRecorder.reset();
+			mediaRecorder.release();
+			mediaRecorder = null;
+			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
+			takeVideoButton.setOnClickListener(new RecordVideo());
+			takePhotoButton.setEnabled(true);
+			changeCameraButton.setEnabled(true);
+		}
+		if (camera != null) {
+			camera.release();
+			camera = null;
+			preview.setCamera(null);
+		}
+		super.onPause();
 	}
 
 	public void rotatePhoto() throws IOException {

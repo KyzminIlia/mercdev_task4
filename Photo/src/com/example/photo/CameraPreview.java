@@ -85,8 +85,7 @@ public class CameraPreview extends SurfaceView implements
 				}
 			}
 			params.setPictureSize(params.getPreviewSize().width,
-					params.getPreviewSize().height);// (bestSize.width,
-													// bestSize.height);
+					params.getPreviewSize().height);
 			camera.setParameters(params);
 			camera.startPreview();
 		} catch (Exception e) {
