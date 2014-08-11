@@ -16,10 +16,10 @@ import android.widget.EditText;
 public class SavePhotoDialog extends DialogFragment implements OnClickListener {
 	public static final String DIALOG_TAG = SavePhotoDialog.class
 			.getSimpleName();
-	EditText photoNameEdit;
+	private EditText photoNameEdit;
 
-	Button buttonSave;
-	Button buttonCancel;
+	private Button buttonSave;
+	private Button buttonCancel;
 
 	@Override
 	public void onDismiss(DialogInterface dialog) {

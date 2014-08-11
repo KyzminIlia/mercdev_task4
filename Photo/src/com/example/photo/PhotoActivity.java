@@ -9,7 +9,7 @@ import android.view.Window;
 import android.view.WindowManager;
 
 public class PhotoActivity extends FragmentActivity {
-	SavePhotoDialog saveDialog;
+	private SavePhotoDialog saveDialog;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
