@@ -1,9 +1,5 @@
 package com.example.photo;
 
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import android.app.Activity;
-import android.content.Intent;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.view.Menu;
@@ -14,7 +10,6 @@ import android.view.WindowManager;
 
 public class PhotoActivity extends FragmentActivity {
 	SavePhotoDialog saveDialog;
-	private final int CAMERA_RESULT = 17;
 
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {

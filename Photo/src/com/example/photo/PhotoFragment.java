@@ -50,36 +50,28 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.Toast;
 
-public class PhotoFragment extends Fragment {
+public class PhotoFragment extends Fragment implements OnClickListener {
 	public static final String FRAGMENT_TAG = PhotoFragment.class
 			.getSimpleName();
 	public static final String ACTION_SAVE_PHOTO = "com.example.photo.SAVE_PHOTO";
 	public static final String EXTRA_PHOTO_NAME = "com.example.photo.PHOTO_NAME";
-	FrameLayout photoView;
-	ImageButton takePhotoButton;
-	ImageButton takeVideoButton;
-	MediaRecorder mediaRecorder;
-	File videoFile;
-	BroadcastReceiver photoSaveReceiver;
-	Uri photoUri;
-	File tempPhotoFile;
-	WeakReference<Bitmap> resizedPhoto;
-	Camera camera;
-	CameraPreview preview;
-	PictureCallback picture;
-	ImageView photoPreview;
-	boolean isPhotoTaken = false;
-	boolean isStopped = false;
-	boolean isRecordingVideo = false;
-	String takePhotoButtonText;
-	ImageButton changeCameraButton;
-	Camera.CameraInfo currentCamInfo;
-	Animation rotateAnimation;
-	SensorManager sensorManager;
-	int prevPitch = 0;
-	int mFrameWidth;
-	int mFrameHeight;
-	List<Camera.Size> sizes;
+	private FrameLayout photoView;
+	private ImageButton takePhotoButton;
+	private ImageButton takeVideoButton;
+	private MediaRecorder mediaRecorder;
+	private File videoFile;
+	private BroadcastReceiver photoSaveReceiver;
+	private File tempPhotoFile;
+	private Camera camera;
+	private CameraPreview preview;
+	private PictureCallback picture;
+	private ImageView photoPreview;
+	private boolean isPhotoTaken = false;
+	private boolean isRecordingVideo = false;
+	private ImageButton changeCameraButton;
+	private Camera.CameraInfo currentCamInfo;
+	private int mFrameWidth;
+	private int mFrameHeight;
 
 	@Override
 	public void onDestroy() {
@@ -107,29 +99,6 @@ public class PhotoFragment extends Fragment {
 	}
 
 	@Override
-	public void onStop() {
-		isStopped = true;
-		if (mediaRecorder != null) {
-			mediaRecorder.stop();
-			mediaRecorder.reset();
-			mediaRecorder.release();
-			mediaRecorder = null;
-			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
-			takeVideoButton.setOnClickListener(new RecordVideo());
-			takePhotoButton.setEnabled(true);
-			changeCameraButton.setEnabled(true);
-		}
-		if (camera != null) {
-			camera.release();
-			camera = null;
-			preview.setCamera(null);
-		}
-
-		Log.d(FRAGMENT_TAG, "onStop");
-		super.onStop();
-	}
-
-	@Override
 	public void onPause() {
 		if (mediaRecorder != null) {
 			mediaRecorder.stop();
@@ -137,7 +106,7 @@ public class PhotoFragment extends Fragment {
 			mediaRecorder.release();
 			mediaRecorder = null;
 			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
-			takeVideoButton.setOnClickListener(new RecordVideo());
+			takeVideoButton.setOnClickListener(this);
 			takePhotoButton.setEnabled(true);
 			changeCameraButton.setEnabled(true);
 		}
@@ -197,31 +166,18 @@ public class PhotoFragment extends Fragment {
 					photo.getBitmap().getHeight(), matrix, true));
 			break;
 		}
+
 		FileOutputStream photoOutput = new FileOutputStream(
 				tempPhotoFile.getPath());
-		rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
-				photoOutput);
-		photo = null;
-		photoOutput.close();
-	}
+		try {
+			rotatedPhoto.get().compress(Bitmap.CompressFormat.JPEG, 100,
+					photoOutput);
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
 
-	public Uri getPhotoUri() {
-		return photoUri;
-	}
-
-	private Camera.Size getBestPreviewSize(Camera.Parameters parameters) {
-		Camera.Size bestSize = null;
-		List<Camera.Size> sizeList = parameters.getSupportedPreviewSizes();
-
-		bestSize = sizeList.get(0);
-
-		for (int i = 1; i < sizeList.size(); i++) {
-			if ((sizeList.get(i).width * sizeList.get(i).height) > (bestSize.width * bestSize.height)) {
-				bestSize = sizeList.get(i);
-			}
+			photoOutput.close();
 		}
-
-		return bestSize;
 	}
 
 	@Override
@@ -237,18 +193,13 @@ public class PhotoFragment extends Fragment {
 			preview.setCamera(camera);
 			Log.d(FRAGMENT_TAG, "camera supported");
 			Camera.Parameters params = camera.getParameters();
-			sizes = params.getSupportedPreviewSizes();
 			Display display = ((WindowManager) getActivity().getSystemService(
 					Context.WINDOW_SERVICE)).getDefaultDisplay();
 			DisplayMetrics metrics = new DisplayMetrics();
 			display.getMetrics(metrics);
-			mFrameWidth = (int) (getBestPreviewSize(params).width);
-			mFrameHeight = (int) (getBestPreviewSize(params).height);
 			preview.setLayoutParams(new LayoutParams((int) (params
 					.getPreviewSize().width),
 					(int) (params.getPreviewSize().height)));
-			// params.setPreviewSize((int) (mFrameHeight), (int)
-			// (mFrameHeight));
 			params.set("cam_mode", 1);
 			params.setZoom(0);
 			params.setPictureSize(mFrameWidth, mFrameHeight);
@@ -289,23 +240,20 @@ public class PhotoFragment extends Fragment {
 				}
 				WeakReference<Bitmap> photo = new WeakReference<Bitmap>(
 						BitmapFactory.decodeFile(tempPhotoFile.getPath()));
-				photo.get().compress(Bitmap.CompressFormat.JPEG, 100,
-						photoOutput);
-				photo = null;
-				tempPhotoFile.delete();
 				try {
-					photoOutput.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		};
-		ShutterCallback shutter = new ShutterCallback() {
+					photo.get().compress(Bitmap.CompressFormat.JPEG, 100,
+							photoOutput);
 
-			@Override
-			public void onShutter() {
-				Toast.makeText(getActivity(), "Picture taken",
-						Toast.LENGTH_SHORT);
+					tempPhotoFile.delete();
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					try {
+						photoOutput.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
 
 			}
 		};
@@ -326,9 +274,13 @@ public class PhotoFragment extends Fragment {
 					e.printStackTrace();
 				}
 
+				FileOutputStream photoOutput = null;
 				try {
-					FileOutputStream photoOutput = new FileOutputStream(
-							tempPhotoFile);
+					photoOutput = new FileOutputStream(tempPhotoFile);
+				} catch (FileNotFoundException e1) {
+					e1.printStackTrace();
+				}
+				try {
 					photoOutput.write(data);
 					DisplayMetrics metrics = new DisplayMetrics();
 					getActivity().getWindowManager().getDefaultDisplay()
@@ -346,13 +298,17 @@ public class PhotoFragment extends Fragment {
 					photoView.removeAllViews();
 					photoView.addView(photoPreview);
 					isPhotoTaken = true;
-					photo = null;
-					photoOutput.close();
 
 				} catch (FileNotFoundException e) {
 					e.printStackTrace();
 				} catch (IOException e) {
 					e.printStackTrace();
+				} finally {
+					try {
+						photoOutput.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
 
 			}
@@ -369,12 +325,12 @@ public class PhotoFragment extends Fragment {
 			camera = Camera.open(currentCamInfo.facing);
 			preview.setCamera(camera);
 			if (!isPhotoTaken) {
-				takePhotoButton.setOnClickListener(new TakePhoto());
+				takePhotoButton.setOnClickListener(this);
 
 			} else {
 				takeVideoButton.setEnabled(false);
 				changeCameraButton.setEnabled(false);
-				takePhotoButton.setOnClickListener(new RetakePhoto());
+				takePhotoButton.setOnClickListener(this);
 			}
 
 		}
@@ -387,9 +343,7 @@ public class PhotoFragment extends Fragment {
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 
 		photoView = (FrameLayout) view.findViewById(R.id.photo_view);
-		if (isRecordingVideo) {
-			photoView.addView(preview);
-		} else if (!isPhotoTaken) {
+		if (isRecordingVideo || !isPhotoTaken) {
 			photoView.addView(preview);
 		} else {
 			photoView.addView(photoPreview);
@@ -400,9 +354,9 @@ public class PhotoFragment extends Fragment {
 		changeCameraButton = (ImageButton) view
 				.findViewById(R.id.change_camera_button);
 		takeVideoButton = (ImageButton) view.findViewById(R.id.take_video);
-		changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
-		takePhotoButton.setOnClickListener(new TakePhoto());
-		takeVideoButton.setOnClickListener(new RecordVideo());
+		changeCameraButton.setOnClickListener(this);
+		takePhotoButton.setOnClickListener(this);
+		takeVideoButton.setOnClickListener(this);
 		takePhotoButton.getBackground().setColorFilter(
 				new LightingColorFilter(0xFF0000, 0xFF0000));
 		takeVideoButton.getBackground().setColorFilter(
@@ -420,147 +374,118 @@ public class PhotoFragment extends Fragment {
 		return v;
 	}
 
-	class TakePhoto implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			camera.takePicture(null, null, picture);
-			takePhotoButton.setOnClickListener(new RetakePhoto());
-			takeVideoButton.setEnabled(false);
-			changeCameraButton.setEnabled(false);
-
-		}
-	}
-
-	class RetakePhoto implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			photoView.removeAllViews();
-			takePhotoButton.setOnClickListener(new TakePhoto());
-			isPhotoTaken = false;
-			photoView.addView(preview);
-			preview.setCamera(camera);
-			getActivity().setRequestedOrientation(
-					ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
-			takeVideoButton.setEnabled(true);
-			changeCameraButton.setEnabled(true);
-
-		}
-
-	}
-
-	class ChangeToFrontCamera implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
+	@Override
+	public void onClick(View v) {
+		switch (v.getId()) {
+		case R.id.take_photo_button:
 			if (!isPhotoTaken) {
+				camera.takePicture(null, null, picture);
+				takeVideoButton.setEnabled(false);
+				changeCameraButton.setEnabled(false);
+			} else {
+				photoView.removeAllViews();
+				isPhotoTaken = false;
+				photoView.addView(preview);
+				preview.setCamera(camera);
+				getActivity().setRequestedOrientation(
+						ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+				takeVideoButton.setEnabled(true);
+				changeCameraButton.setEnabled(true);
+			}
+
+			break;
+		case R.id.change_camera_button:
+			if (currentCamInfo.facing == CameraInfo.CAMERA_FACING_BACK) {
+				if (!isPhotoTaken) {
+					camera.stopPreview();
+				}
+				camera.release();
+				Camera frontCamera = Camera.open(currentCamInfo.facing);
+				currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_FRONT;
+				preview.setCamera(frontCamera);
+				camera = frontCamera;
+
+			} else {
+
+				if (!isPhotoTaken) {
+					camera.stopPreview();
+				}
+				camera.release();
+				Camera backCamera = Camera.open(currentCamInfo.facing);
+				currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_BACK;
+				preview.setCamera(backCamera);
+				camera = backCamera;
+			}
+			break;
+		case R.id.take_video:
+			if (isRecordingVideo) {
+				try {
+					mediaRecorder.stop();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				Log.d(FRAGMENT_TAG, "video record stopped");
+				mediaRecorder.reset();
+				mediaRecorder.release();
+				mediaRecorder = null;
+				takePhotoButton.setEnabled(true);
+				takeVideoButton.setImageResource(R.drawable.video_camera_icon);
+				changeCameraButton.setEnabled(true);
+				isRecordingVideo = false;
+				try {
+					camera.reconnect();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			} else {
+				isRecordingVideo = true;
+				takeVideoButton
+						.setImageResource(R.drawable.stop_recording_video_ico);
+				mediaRecorder = new MediaRecorder();
 				camera.stopPreview();
+				camera.unlock();
+				CamcorderProfile camProfile = CamcorderProfile
+						.get(CamcorderProfile.QUALITY_HIGH);
+
+				mediaRecorder.setCamera(camera);
+				mediaRecorder
+						.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
+				mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
+				mediaRecorder.setProfile(camProfile);
+				mediaRecorder.setPreviewDisplay(preview.getHolder()
+						.getSurface());
+				videoFile = Environment
+						.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
+				if (!videoFile.exists()) {
+					videoFile.mkdir();
+				}
+				String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
+						.format(new Date());
+
+				videoFile = new File(videoFile.getPath(), "video - "
+						+ timeStamp + ".mp4");
+				try {
+					videoFile.createNewFile();
+				} catch (IOException e1) {
+
+					e1.printStackTrace();
+				}
+				mediaRecorder.setOutputFile(videoFile.getPath().toString());
+				try {
+					mediaRecorder.prepare();
+					mediaRecorder.start();
+					Log.d(FRAGMENT_TAG, "video record started");
+				} catch (IllegalStateException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+
+					e.printStackTrace();
+				}
+				takePhotoButton.setEnabled(false);
+				changeCameraButton.setEnabled(false);
 			}
-			camera.release();
-			Camera frontCamera = Camera
-					.open(currentCamInfo.CAMERA_FACING_FRONT);
-			currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_FRONT;
-			changeCameraButton.setOnClickListener(new ChangeToBackCamera());
-			preview.setCamera(frontCamera);
-			camera = frontCamera;
 
-		}
-
-	}
-
-	class ChangeToBackCamera implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			if (!isPhotoTaken) {
-				camera.stopPreview();
-			}
-			camera.release();
-			Camera backCamera = Camera.open(currentCamInfo.CAMERA_FACING_BACK);
-			currentCamInfo.facing = Camera.CameraInfo.CAMERA_FACING_BACK;
-			changeCameraButton.setOnClickListener(new ChangeToFrontCamera());
-			preview.setCamera(backCamera);
-			camera = backCamera;
-		}
-
-	}
-
-	class RecordVideo implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			isRecordingVideo = true;
-			takeVideoButton
-					.setImageResource(R.drawable.stop_recording_video_ico);
-			mediaRecorder = new MediaRecorder();
-			camera.stopPreview();
-			camera.unlock();
-			CamcorderProfile camProfile = CamcorderProfile
-					.get(CamcorderProfile.QUALITY_HIGH);
-
-			mediaRecorder.setCamera(camera);
-			mediaRecorder.setAudioSource(MediaRecorder.AudioSource.CAMCORDER);
-			mediaRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
-			mediaRecorder.setProfile(camProfile);
-			mediaRecorder.setPreviewDisplay(preview.getHolder().getSurface());
-			videoFile = Environment
-					.getExternalStoragePublicDirectory(Environment.DIRECTORY_MOVIES);
-			if (!videoFile.exists()) {
-				videoFile.mkdir();
-			}
-			String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss")
-					.format(new Date());
-
-			videoFile = new File(videoFile.getPath(), "video - " + timeStamp
-					+ ".mp4");
-			try {
-				videoFile.createNewFile();
-			} catch (IOException e1) {
-
-				e1.printStackTrace();
-			}
-			mediaRecorder.setOutputFile(videoFile.getPath().toString());
-			try {
-				mediaRecorder.prepare();
-				mediaRecorder.start();
-				Log.d(FRAGMENT_TAG, "video record started");
-			} catch (IllegalStateException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-
-				e.printStackTrace();
-			}
-			takeVideoButton.setOnClickListener(new StopVideo());
-			takePhotoButton.setEnabled(false);
-			changeCameraButton.setEnabled(false);
-		}
-	}
-
-	class StopVideo implements OnClickListener {
-
-		@Override
-		public void onClick(View v) {
-			try {
-				mediaRecorder.stop();
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			Log.d(FRAGMENT_TAG, "video record stopped");
-			mediaRecorder.reset();
-			mediaRecorder.release();
-			mediaRecorder = null;
-			takeVideoButton.setOnClickListener(new RecordVideo());
-			takePhotoButton.setEnabled(true);
-			takeVideoButton.setImageResource(R.drawable.video_camera_icon);
-			changeCameraButton.setEnabled(true);
-			isRecordingVideo = false;
-			try {
-				camera.reconnect();
-				// camera.startPreview();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			break;
 		}
 
 	}

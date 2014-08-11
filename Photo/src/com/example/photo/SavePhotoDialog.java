@@ -17,7 +17,6 @@ public class SavePhotoDialog extends DialogFragment implements OnClickListener {
 	public static final String DIALOG_TAG = SavePhotoDialog.class
 			.getSimpleName();
 	EditText photoNameEdit;
-	boolean isDismissed = false;
 
 	Button buttonSave;
 	Button buttonCancel;
@@ -25,10 +24,6 @@ public class SavePhotoDialog extends DialogFragment implements OnClickListener {
 	@Override
 	public void onDismiss(DialogInterface dialog) {
 		super.onDismiss(dialog);
-	}
-
-	public boolean isDismissed() {
-		return isDismissed;
 	}
 
 	public String getPhotoName() {
@@ -61,12 +56,12 @@ public class SavePhotoDialog extends DialogFragment implements OnClickListener {
 
 	@Override
 	public void onClick(View v) {
-		if (v.getId() == R.id.button_cancel) {
-			isDismissed = true;
+		switch (v.getId()) {
+		case R.id.button_cancel:
 			dismiss();
-		} else {
+			break;
+		case R.id.button_save:
 			if (!photoNameEdit.getText().equals("")) {
-				isDismissed = true;
 				Intent saveIntent = new Intent(PhotoFragment.ACTION_SAVE_PHOTO);
 				saveIntent.putExtra(PhotoFragment.EXTRA_PHOTO_NAME,
 						photoNameEdit.getText().toString());
@@ -74,7 +69,10 @@ public class SavePhotoDialog extends DialogFragment implements OnClickListener {
 						saveIntent);
 				dismiss();
 			}
-
+			break;
+		default:
+			dismiss();
+			break;
 		}
 
 	}
