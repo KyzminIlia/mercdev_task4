@@ -76,9 +76,21 @@ public class CameraPreview extends SurfaceView implements
 		}
 
 		try {
-
+			Parameters params = camera.getParameters();
+			List<Size> supportedSizes = params.getSupportedPreviewSizes();
+			Size bestSize = supportedSizes.get(0);
+			for (int i = 1; i < supportedSizes.size(); i++) {
+				if ((supportedSizes.get(i).width * supportedSizes.get(i).height) > (bestSize.width * bestSize.height)) {
+					bestSize = supportedSizes.get(i);
+				}
+			}
+			params.setPictureSize(params.getPreviewSize().width,
+					params.getPreviewSize().height);// (bestSize.width,
+													// bestSize.height);
+			camera.setParameters(params);
 			camera.startPreview();
 		} catch (Exception e) {
 		}
 	}
+
 }

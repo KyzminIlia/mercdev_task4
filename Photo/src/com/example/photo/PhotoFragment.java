@@ -24,6 +24,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.hardware.Camera;
 import android.hardware.Camera.CameraInfo;
 import android.hardware.Camera.PictureCallback;
+import android.hardware.Camera.ShutterCallback;
 import android.hardware.SensorManager;
 import android.media.CamcorderProfile;
 import android.media.ExifInterface;
@@ -47,6 +48,7 @@ import android.view.animation.Animation;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.ImageView;
+import android.widget.Toast;
 
 public class PhotoFragment extends Fragment {
 	public static final String FRAGMENT_TAG = PhotoFragment.class
@@ -219,13 +221,20 @@ public class PhotoFragment extends Fragment {
 			display.getMetrics(metrics);
 			mFrameWidth = (int) (getBestPreviewSize(params).width);
 			mFrameHeight = (int) (getBestPreviewSize(params).height);
-			preview.setLayoutParams(new LayoutParams(
-					(int) (mFrameWidth / metrics.density),
-					(int) (mFrameHeight / metrics.density)));
-
+			preview.setLayoutParams(new LayoutParams((int) (params
+					.getPreviewSize().width),
+					(int) (params.getPreviewSize().height)));
+			// params.setPreviewSize((int) (mFrameHeight), (int)
+			// (mFrameHeight));
 			params.set("cam_mode", 1);
 			params.setZoom(0);
 			params.setPictureSize(mFrameWidth, mFrameHeight);
+			Log.d(FRAGMENT_TAG,
+					"size: " + mFrameWidth + "("
+							+ params.getPreviewSize().width + "):"
+							+ mFrameHeight + "("
+							+ params.getPreviewSize().height + ")"
+							+ " with density " + metrics.density);
 			params.setFocusMode(Camera.Parameters.FOCUS_MODE_INFINITY);
 			camera.setParameters(params);
 		}
@@ -266,6 +275,15 @@ public class PhotoFragment extends Fragment {
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
+			}
+		};
+		ShutterCallback shutter = new ShutterCallback() {
+
+			@Override
+			public void onShutter() {
+				Toast.makeText(getActivity(), "Picture taken",
+						Toast.LENGTH_SHORT);
+
 			}
 		};
 		picture = new PictureCallback() {
